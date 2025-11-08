@@ -12,6 +12,7 @@ import AdminLogin from './components/AdminLogin'
 import CustomerLogin from './components/CustomerLogin'
 import BottomAscii from './components/BottomAscii'
 import TopHeader from './components/TopHeader'
+import FadeIn from './components/FadeIn'
 import { RiAnthropicFill } from "react-icons/ri"
 
 function App() {
@@ -277,6 +278,9 @@ function App() {
           </EffectComposer>
         </Canvas>
       </div>
+
+      {/* Fade In Overlay */}
+      <FadeIn />
     </div>
   );
 }
