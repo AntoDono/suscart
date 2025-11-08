@@ -33,18 +33,7 @@ function App() {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
-  // Add/remove user-page class to enable scrolling on user page
-  useEffect(() => {
-    const isUserPage = currentPage === '#user';
-    document.body.classList.toggle('user-page', isUserPage);
-    document.documentElement.classList.toggle('user-page', isUserPage);
-    const root = document.getElementById('root');
-    if (root) {
-      root.classList.toggle('user-page', isUserPage);
-    }
-  }, [currentPage]);
-
-  // Show mobile terminal on mobile (applies to all pages)
+  // Show mobile terminal on mobile
   if (isMobile) {
     return <MobileTerminal />;
   }
@@ -87,12 +76,16 @@ function App() {
         minHeight: '100vh',
         backgroundColor: '#000000',
         overflowY: 'auto',
-        overflowX: 'hidden',
-        position: 'relative'
+        overflowX: 'hidden'
       }}>
         <CustomerPortal />
       </div>
     );
+  }
+
+  // Show mobile terminal on mobile for landing page
+  if (isMobile) {
+    return <MobileTerminal />;
   }
 
   // Landing page

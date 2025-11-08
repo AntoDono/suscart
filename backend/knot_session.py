@@ -54,9 +54,8 @@ class KnotSessionManager:
                 'external_user_id': external_user_id
             }
             
-            # Use /session/create endpoint (not /sessions)
             response = requests.post(
-                f'{self.base_url}/session/create',
+                f'{self.base_url}/sessions',
                 headers=self.headers,
                 json=payload,
                 timeout=10
@@ -70,9 +69,8 @@ class KnotSessionManager:
         
         except requests.exceptions.RequestException as e:
             print(f"❌ Error creating session: {e}")
-            if hasattr(e, 'response') and e.response is not None:
-                print(f"   Status: {e.response.status_code}")
-                print(f"   Response: {e.response.text[:500]}")
+            if hasattr(e.response, 'text'):
+                print(f"   Response: {e.response.text}")
             return None
     
     def get_session(self, session_id):

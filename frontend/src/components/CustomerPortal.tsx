@@ -148,13 +148,6 @@ interface KnotTransaction {
   }[];
 }
 
-// TypeScript types for Knot SDK v1.0+ (loaded from CDN)
-declare global {
-  interface Window {
-    KnotapiJS: any;
-  }
-}
-
 const CustomerPortalContent = () => {
   const [customerId, setCustomerId] = useState<number | null>(null);
   const [customer, setCustomer] = useState<Customer | null>(null);
@@ -166,8 +159,6 @@ const CustomerPortalContent = () => {
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [knotTransactions, setKnotTransactions] = useState<KnotTransaction[]>([]);
   const [showTransactionType, setShowTransactionType] = useState<'suscart' | 'knot'>('knot');
-  const [merchants, setMerchants] = useState<any[]>([]);
-  const [connectingMerchant, setConnectingMerchant] = useState<number | null>(null);
   const [welcomeStep, setWelcomeStep] = useState(0);
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -191,22 +182,7 @@ const CustomerPortalContent = () => {
       loadCustomerData(id);
       connectWebSocket(id);
     }
-    
-    // Load available merchants
-    loadMerchants();
   }, []);
-  
-  const loadMerchants = async () => {
-    try {
-      const response = await fetch(`${config.apiUrl}/api/knot/merchants`);
-      if (response.ok) {
-        const data = await response.json();
-        setMerchants(data.merchants || []);
-      }
-    } catch (error) {
-      console.error('Error loading merchants:', error);
-    }
-  };
 
   // Helper function to normalize recommendation data and filter
   const normalizeAndFilterRecommendations = (recs: Recommendation[]): Recommendation[] => {
@@ -430,186 +406,6 @@ const CustomerPortalContent = () => {
     }, 1000);
   };
 
-  // Real Knot authentication using Knot Link widget
-  const connectMerchantAccount = async (merchantId: number) => {
-    // First, ensure user is logged in
-    if (!customerId) {
-      // Try to create a customer first
-      const tempCustomerId = Date.now().toString();
-      setCustomerId(parseInt(tempCustomerId));
-      localStorage.setItem('suscart_customer_id', tempCustomerId);
-    }
-
-    const currentCustomerId = customerId || parseInt(localStorage.getItem('suscart_customer_id') || '0');
-    
-    if (!currentCustomerId) {
-      alert('Please login first or create an account');
-      return;
-    }
-
-    setConnectingMerchant(merchantId);
-    
-    try {
-      // Step 1: Create Knot session
-      console.log(`Creating Knot session for customer ${currentCustomerId}...`);
-      const sessionRes = await fetch(`${config.apiUrl}/api/knot/session/create`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          external_user_id: currentCustomerId.toString()
-        })
-      });
-
-      const sessionData = await sessionRes.json();
-      
-      // Check if tunnel mode (no real authentication)
-      if (sessionData.environment === 'tunnel' || !sessionData.clientId) {
-        let message = 'Real authentication requires dev/prod environment.\n\n';
-        if (!sessionData.clientId) {
-          message += 'KNOT_CLIENT_ID is not set in your .env file.\n';
-        }
-        if (sessionData.environment === 'tunnel') {
-          message += 'KNOT_ENV is set to "tunnel". Please set it to "dev" or "prod".\n';
-        }
-        message += '\nMake sure to:\n1. Set KNOT_ENV=dev (or prod)\n2. Set KNOT_CLIENT_ID=your_client_id\n3. Restart your backend server';
-        alert(message);
-        setConnectingMerchant(null);
-        return;
-      }
-      
-      // If session creation failed, show error but still try to help
-      if (!sessionRes.ok || sessionData.status === 'error') {
-        const errorMsg = sessionData.message || 'Failed to create session';
-        console.error('Session creation error:', sessionData);
-        alert(`Session creation failed: ${errorMsg}\n\nCheck your backend logs for details. Your credentials are configured, but the session API call failed.`);
-        setConnectingMerchant(null);
-        return;
-      }
-      
-      // Map 'dev' to 'development' and 'prod' to 'production' for SDK
-      const environmentMap: { [key: string]: string } = {
-        'dev': 'development',
-        'prod': 'production',
-        'development': 'development',
-        'production': 'production'
-      };
-      
-      // Try multiple ways to get session_id (Knot API might return it in different formats)
-      const sessionId = sessionData.session_id || 
-                       sessionData.session?.session_id || 
-                       (sessionData.session && typeof sessionData.session === 'object' ? sessionData.session.session_id : null);
-      const clientId = sessionData.clientId;
-      const environment = environmentMap[sessionData.environment] || sessionData.environment;
-
-      console.log('Session data received:', {
-        hasSession: !!sessionData.session,
-        sessionId: sessionId,
-        clientId: clientId,
-        environment: environment,
-        fullResponse: sessionData
-      });
-
-      if (!sessionId || !clientId) {
-        // If session creation failed but we have clientId, show helpful error
-        if (clientId && sessionData.status === 'error') {
-          throw new Error(`Session creation failed: ${sessionData.message || 'Unknown error'}. Check backend logs.`);
-        }
-        console.error('Missing session ID or client ID:', {
-          sessionId: sessionId,
-          clientId: clientId,
-          sessionData: sessionData
-        });
-        throw new Error(`Missing session ID or client ID from backend. Session ID: ${sessionId ? 'found' : 'missing'}, Client ID: ${clientId ? 'found' : 'missing'}`);
-      }
-
-      console.log('Session created:', { sessionId, clientId, environment });
-
-      // Step 2: Check if Knot SDK is loaded
-      if (!window.KnotapiJS) {
-        throw new Error('Knot SDK not loaded. Please refresh the page.');
-      }
-
-      // Step 3: Initialize Knot SDK v1.0+ (new API)
-      const KnotapiJS = window.KnotapiJS.default || window.KnotapiJS;
-      console.log('Initializing Knot SDK with:', { sessionId, clientId, environment, merchantId });
-      
-      if (!KnotapiJS) {
-        throw new Error('KnotapiJS class not found');
-      }
-      
-      const knotapi = new KnotapiJS();
-      console.log('KnotapiJS instance created:', knotapi);
-      console.log('Available methods:', Object.keys(knotapi));
-
-      // Step 4: Open the SDK with proper configuration
-      console.log('Opening Knot SDK widget...');
-      
-      try {
-        const openResult = knotapi.open({
-          sessionId: sessionId,
-          clientId: clientId,
-          environment: environment, // 'development' or 'production'
-          product: 'transaction_link',
-          merchantIds: [merchantId], // Single merchant for focused experience
-          entryPoint: 'customer_portal',
-          useCategories: false, // Single merchant, no need for categories
-          useSearch: false, // Single merchant, no need for search
-          onSuccess: (product: string, details: any) => {
-            console.log('✅ Account connected successfully!', product, details);
-            setConnectingMerchant(null);
-            
-            alert(`Account connected! Your ${details.merchantName || 'merchant'} transactions will sync automatically.`);
-            
-            // Refresh customer data after a short delay (webhook will update)
-            setTimeout(() => {
-              if (currentCustomerId) {
-                loadCustomerData(currentCustomerId);
-              }
-            }, 2000);
-          },
-          onError: (product: string, errorCode: string, errorDescription: string) => {
-            console.error('❌ Knot connection error:', { product, errorCode, errorDescription });
-            setConnectingMerchant(null);
-            alert(`Connection failed: ${errorCode} - ${errorDescription}`);
-          },
-          onExit: (product: string) => {
-            console.log('🚪 Knot SDK closed', product);
-            setConnectingMerchant(null);
-          },
-          onEvent: (product: string, event: string, merchant: string, merchantId: number, payload: any, taskId: string) => {
-            console.log('📡 Knot SDK event:', { product, event, merchant, merchantId, payload, taskId });
-          }
-        });
-        
-        console.log('knotapi.open() returned:', openResult);
-        
-        // If open() returns a promise, wait for it
-        if (openResult && typeof openResult.then === 'function') {
-          openResult.then(() => {
-            console.log('✅ SDK open promise resolved');
-          }).catch((err: any) => {
-            console.error('❌ SDK open promise rejected:', err);
-            setConnectingMerchant(null);
-            alert(`Failed to open Knot SDK: ${err.message || 'Unknown error'}`);
-          });
-        }
-      } catch (openError: any) {
-        console.error('❌ Error calling knotapi.open():', openError);
-        setConnectingMerchant(null);
-        alert(`Failed to open Knot SDK: ${openError.message || 'Unknown error'}`);
-        throw openError;
-      }
-
-    } catch (error: any) {
-      console.error('Error connecting merchant account:', error);
-      setConnectingMerchant(null);
-      alert(`Error: ${error.message || 'Failed to connect account'}`);
-    }
-  };
-
-  // Fallback: Old sync method for tunnel mode (testing)
   const syncFromKnot = async () => {
     if (!knotUserId.trim()) {
       alert('Please enter a Knot user ID (e.g., "abc" for test)');
@@ -699,78 +495,187 @@ const CustomerPortalContent = () => {
   // If not logged in, show welcome screen
   if (!customerId || !customer) {
     return (
-      <div className="customer-portal login-view">
-        <div className="login-container">
-          <h1>Welcome to SusCart</h1>
-          <p className="subtitle">Get personalized deals based on your shopping history</p>
-          
-          <div className="knot-sync-section">
-            <h2>Connect Your Account</h2>
-            <p>Link your grocery purchase history via Knot API</p>
-            
-            <div className="sync-form">
-              <input
-                type="text"
-                value={knotUserId}
-                onChange={(e) => setKnotUserId(e.target.value)}
-                placeholder="Enter Knot user ID (e.g., 'abc')"
-                className="knot-input"
-              />
-              <button 
-                onClick={syncFromKnot} 
-                disabled={syncLoading}
-                className="sync-button"
-              >
-                {syncLoading ? 'Syncing...' : 'Connect with Knot'}
-              </button>
-            </div>
-            
-            <div className="test-users">
-              <p className="hint">Test Users:</p>
-              <button onClick={() => setKnotUserId('abc')} className="test-user-btn">
-                Use 'abc' (Test Data)
-              </button>
-              <button onClick={() => setKnotUserId('user123')} className="test-user-btn">
-                Use 'user123' (Mock)
-              </button>
-            </div>
-          </div>
-
-          <div className="or-divider">
-            <span>OR</span>
-          </div>
-
-          <div className="existing-users">
-            <h2>Existing Customers</h2>
-            <p>Demo with pre-loaded customers</p>
-            <div className="user-buttons">
-              <button onClick={() => { 
-                setCustomerId(1); 
-                localStorage.setItem('suscart_customer_id', '1');
-                loadCustomerData(1); 
-                connectWebSocket(1); 
-              }} className="user-btn">
-                Alice Johnson (Likes: Apple, Banana, Strawberry)
-              </button>
-              <button onClick={() => { 
-                setCustomerId(2); 
-                localStorage.setItem('suscart_customer_id', '2');
-                loadCustomerData(2); 
-                connectWebSocket(2); 
-              }} className="user-btn">
-                Bob Smith (Likes: Orange, Grape, Watermelon)
-              </button>
-              <button onClick={() => { 
-                setCustomerId(3); 
-                localStorage.setItem('suscart_customer_id', '3');
-                loadCustomerData(3); 
-                connectWebSocket(3); 
-              }} className="user-btn">
-                Carol White (Likes: Mango, Blueberry, Pear)
-              </button>
-            </div>
-          </div>
+      <div className="customer-portal welcome-view">
+        {/* Fullscreen FaultyTerminal Background */}
+        <div className="welcome-terminal-background">
+          <FaultyTerminal
+            scale={2.5}
+            gridMul={terminalGridMul}
+            digitSize={1.8}
+            timeScale={1.5}
+            pause={false}
+            scanlineIntensity={0.7}
+            glitchAmount={1}
+            flickerAmount={1}
+            noiseAmp={1}
+            chromaticAberration={0}
+            dither={0}
+            curvature={0.15}
+            tint="#2a4a2a"
+            mouseReact={false}
+            mouseStrength={0}
+            pageLoadAnimation={true}
+            brightness={0.35}
+          />
         </div>
+
+        {/* Welcome Text - fades out after initial display */}
+        <AnimatePresence mode="wait">
+          {welcomeStep === 0 ? (
+            <motion.div
+              key="welcome"
+              className="welcome-text-container"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{
+                initial: { duration: 0.8, ease: "easeOut" },
+                exit: { duration: 1.2, ease: "easeIn" }
+              }}
+            >
+              <h1 className="welcome-title">
+                <GradientText
+                  colors={terminalGradientColors}
+                  animationSpeed={4}
+                  showBorder={false}
+                >
+                  WELCOME TO
+                </GradientText>
+              </h1>
+
+              <img
+                src="/edgecart.png"
+                alt="edgecart"
+                className="welcome-logo-center"
+              />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="login"
+              className="portal-login-wrapper"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 1, ease: "easeOut", delay: 0.2 }}
+            >
+              <div className="portal-login-content">
+                <h2 className="portal-login-title">
+                  <GradientText
+                    colors={terminalGradientColors}
+                    animationSpeed={4}
+                    showBorder={false}
+                  >
+                    CUSTOMER PORTAL
+                  </GradientText>
+                </h2>
+
+                <div className="portal-terminal">
+                  <div className="portal-terminal-header">
+                    <div className="terminal-buttons">
+                      <span className="terminal-button close"></span>
+                      <span className="terminal-button minimize"></span>
+                      <span className="terminal-button maximize"></span>
+                    </div>
+                    <div className="terminal-title">customer@edgecart</div>
+                  </div>
+                  <div className="portal-terminal-body">
+                    <div className="portal-terminal-content">
+                      <p className="terminal-prompt">$ connect knot account</p>
+                      <p className="terminal-info">sync your purchase history to get personalized deals</p>
+
+                      <div className="terminal-input-group">
+                        <span className="terminal-prefix">{'>'}</span>
+                        <input
+                          type="text"
+                          value={knotUserId}
+                          onChange={(e) => setKnotUserId(e.target.value)}
+                          placeholder="enter knot user id"
+                          className="terminal-input"
+                          disabled={syncLoading}
+                          onKeyDown={(e) => e.key === 'Enter' && syncFromKnot()}
+                        />
+                      </div>
+
+                      <div className="profile-cards-section">
+                        <p className="terminal-hint">or try a demo profile:</p>
+                        <div className="profile-cards">
+                          <button
+                            onClick={() => setKnotUserId('abc')}
+                            className="profile-card"
+                          >
+                            <div className="profile-header">
+                              <IoMdWoman className="profile-icon" />
+                              <div className="profile-info">
+                                <div className="profile-name">sarah chen</div>
+                                <div className="profile-id">@abc</div>
+                              </div>
+                            </div>
+                            <div className="profile-bio">health-conscious mom who loves organic berries</div>
+                            <div className="profile-likes">
+                              <GiStrawberry className="like-icon" />
+                              <span>strawberries, blueberries, spinach</span>
+                            </div>
+                          </button>
+
+                          <button
+                            onClick={() => setKnotUserId('def')}
+                            className="profile-card"
+                          >
+                            <div className="profile-header">
+                              <IoMdMan className="profile-icon" />
+                              <div className="profile-info">
+                                <div className="profile-name">marcus lee</div>
+                                <div className="profile-id">@def</div>
+                              </div>
+                            </div>
+                            <div className="profile-bio">fitness enthusiast buying citrus for smoothies</div>
+                            <div className="profile-likes">
+                              <GiOrange className="like-icon" />
+                              <span>oranges, grapefruits, kale</span>
+                            </div>
+                          </button>
+
+                          <button
+                            onClick={() => setKnotUserId('ghi')}
+                            className="profile-card"
+                          >
+                            <div className="profile-header">
+                              <IoMdWoman className="profile-icon" />
+                              <div className="profile-info">
+                                <div className="profile-name">emily rodriguez</div>
+                                <div className="profile-id">@ghi</div>
+                              </div>
+                            </div>
+                            <div className="profile-bio">foodie exploring exotic fruits and vegetables</div>
+                            <div className="profile-likes">
+                              <GiGrapes className="like-icon" />
+                              <span>grapes, dragon fruit, kiwi</span>
+                            </div>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="portal-login-button-wrapper">
+                  <AwesomeButton
+                    type="primary"
+                    onPress={syncFromKnot}
+                    disabled={syncLoading}
+                  >
+                    <GradientText
+                      colors={terminalGradientColors}
+                      animationSpeed={4}
+                      showBorder={false}
+                    >
+                      {syncLoading ? 'SYNCING...' : 'CONNECT'}
+                    </GradientText>
+                  </AwesomeButton>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     );
   }

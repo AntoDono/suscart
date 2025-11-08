@@ -197,12 +197,6 @@ def _generate_recommendations_with_ai(inventory_id):
             'status': item.freshness.status
         }
         
-        # Calculate days until expiration if available
-        days_until_expiration = None
-        if item.freshness.predicted_expiry_date:
-            delta = item.freshness.predicted_expiry_date - datetime.utcnow()
-            days_until_expiration = max(0, delta.days)
-        
         # Format available items for context
         available_items = []
         for avail_item in all_discounted_items[:10]:  # Limit to top 10 for context
@@ -213,8 +207,8 @@ def _generate_recommendations_with_ai(inventory_id):
                     'discount_percentage': avail_item.freshness.discount_percentage
                 })
         
-        # Create enhanced prompt
-        prompt = f"""You are an intelligent grocery recommendation system that understands customer behavior patterns and timing. Your goal is to match discounted items with customers who will genuinely benefit from and appreciate the recommendation.
+        # Create prompt
+        prompt = f"""You are a grocery recommendation system. Analyze the following data and recommend which customers should be notified about a discounted item.
 
 CURRENT DISCOUNTED ITEM:
 {json.dumps(item_data, indent=2)}
@@ -225,68 +219,19 @@ AVAILABLE CUSTOMERS:
 OTHER AVAILABLE DISCOUNTED ITEMS (for context):
 {json.dumps(available_items, indent=2)}
 
-CURRENT CONTEXT:
-- Day of week: {datetime.now().strftime('%A')}
-- Time of day: {datetime.now().strftime('%H:%M')}
-{f'- Days until item expires: {days_until_expiration}' if days_until_expiration is not None else ''}
+Analyze each customer's preferences and determine if they would be interested in the current discounted item. Consider:
+- Favorite products match
+- Price within budget (max_price)
+- Discount meets preference (preferred_discount)
+- Purchase patterns and frequency
 
-Analyze each customer using these MULTI-DIMENSIONAL CRITERIA:
-
-1. **Purchase Pattern Analysis**
-   - Does their purchase_frequency suggest they're due for a shopping trip?
-   - Is this item type something they buy regularly vs occasionally?
-   - Would this complement their typical basket (e.g., apples for someone who buys peanut butter)?
-
-2. **Timing Relevance**
-   - Weekend shoppers vs weekday shoppers
-   - Bulk buyers who might want larger quantities
-   - Last-minute shoppers who appreciate quick deals
-
-3. **Value Perception Beyond Price**
-   - Does the discount percentage exceed their typical threshold?
-   - How does current_price compare to their average_spend patterns?
-   - Would they perceive this as a "stock up" opportunity vs immediate consumption?
-
-4. **Behavioral Triggers**
-   - New variety they haven't tried but aligns with preferences
-   - Seasonal relevance (e.g., citrus in winter, berries in summer)
-   - Health-conscious choices for nutrition-focused customers
-
-5. **Urgency Factors**
-   - Item freshness_score and time sensitivity
-   - Limited quantity creating scarcity
-   - How this deal compares to typical discounts they respond to
-
-For each recommended customer, provide SPECIFIC, VARIED reasoning that would be compelling to THAT customer. Examples of good reasoning:
-- "Perfect for meal prep Sunday - matches weekly buying pattern, 30% discount exceeds usual 20% threshold"
-- "Haven't purchased apples in 2 weeks (usual cycle: 10 days), premium variety at everyday price"
-- "Complements recent granola purchase, ideal breakfast pairing at 40% off"
-- "Last 5 units available, historically purchases when inventory <10"
-- "New variety to explore, aligns with adventurous buying pattern, priced below comfort zone"
-
-Return a JSON array of customer IDs who have priority scores reflecting MULTIPLE factors who should receive recommendations. Format:
+Return a JSON array of customer IDs who should receive recommendations. Format:
 [
-  {{
-    "customer_id": 1,
-    "priority_score": 85,
-    "reason": "Due for weekly apple purchase (last bought 8 days ago), Honeycrisp variety preference match, 35% discount exceeds typical 20% response threshold, perfect for meal prep Sunday routine"
-  }},
-  {{
-    "customer_id": 3,
-    "priority_score": 72,
-    "reason": "Opportunistic bulk buyer pattern detected, current 5kg quantity matches typical purchase size, hasn't tried this premium variety but loves discovering new fruits, price point 40% below usual premium fruit spending"
-  }}
+  {{"customer_id": 1, "priority_score": 25, "reason": "Likes apples, price within budget, discount exceeds preference"}},
+  {{"customer_id": 2, "priority_score": 20, "reason": "Frequently buys similar fruits, good value"}}
 ]
 
-Priority score calculation guide:
-- 80-100: Perfect match across multiple dimensions
-- 60-79: Strong match with compelling reasons
-- 40-59: Moderate match, worth notifying
-- Below 40: Don't include
-
-If no customers score above 20, return an empty array: []
-
-Focus on creating DIVERSE, SPECIFIC reasons that show you understand each customer's unique shopping behavior. Avoid generic phrases like "good value" or "likes fruit". Each reason should tell a story about WHY this deal matters to THIS specific customer RIGHT NOW.
+If no customers are a good match, return an empty array: []
 
 Only return valid JSON, no additional text."""
 
