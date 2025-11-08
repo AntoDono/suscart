@@ -1,2 +1,5 @@
 venv
 __pycache__
+data
+fresh-*-classification.zip  
+.DS_Store
