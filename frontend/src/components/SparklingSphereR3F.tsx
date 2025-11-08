@@ -70,49 +70,9 @@ export const SparklingSphereR3F = ({
   const lastTime = useRef(0);
   const noise3D = useRef(createNoise3D());
 
-  const emitParticles = (position: THREE.Vector3, direction: THREE.Vector3, color: THREE.Color, speed: number) => {
-    // Super minimal emission - only 1 particle sometimes
-    const emitCount = Math.random() > 0.7 ? 1 : 0;
-    const emitGeometry = new THREE.IcosahedronGeometry(0.003, 1);
-    const baseSpeed = speed * 1;
-
-    for (let i = 0; i < emitCount; i++) {
-      const spread = new THREE.Vector3(
-        (Math.random() - 0.5) * 0.8,
-        (Math.random() - 0.5) * 0.8,
-        (Math.random() - 0.5) * 0.8
-      );
-      const emitDir = direction.clone().add(spread).normalize();
-
-      const particleSpeed = Math.max(
-        baseSpeed * (0.5 + Math.random() * 0.5),
-        0.02
-      );
-
-      const material = new THREE.MeshPhongMaterial({
-        color: color,
-        emissive: color,
-        emissiveIntensity: 2,
-        transparent: true,
-        opacity: 1,
-      });
-
-      const mesh = new THREE.Mesh(emitGeometry, material);
-      mesh.position.copy(position);
-      groupRef.current?.add(mesh);
-
-      emittedParticles.current.push({
-        mesh,
-        velocity: emitDir.multiplyScalar(particleSpeed),
-        life: 1.0,
-      });
-    }
-  };
-
   // Create particles if they don't exist
   if (particles.current.length === 0) {
-    const geometry = new THREE.IcosahedronGeometry(0.015, 6); // Increased segments for smoother spheres
-
+    const geometry = new THREE.IcosahedronGeometry(0.015, 6);
     const material = new THREE.MeshPhongMaterial({
       emissiveIntensity: 2,
       specular: new THREE.Color(0xffffff),
@@ -155,6 +115,45 @@ export const SparklingSphereR3F = ({
       });
     }
   }
+
+  const emitParticles = (position: THREE.Vector3, direction: THREE.Vector3, color: THREE.Color, speed: number) => {
+    // Super minimal emission - only 1 particle sometimes
+    const emitCount = Math.random() > 0.7 ? 1 : 0;
+    const emitGeometry = new THREE.IcosahedronGeometry(0.003, 1);
+    const baseSpeed = speed * 1;
+
+    for (let i = 0; i < emitCount; i++) {
+      const spread = new THREE.Vector3(
+        (Math.random() - 0.5) * 0.8,
+        (Math.random() - 0.5) * 0.8,
+        (Math.random() - 0.5) * 0.8
+      );
+      const emitDir = direction.clone().add(spread).normalize();
+
+      const particleSpeed = Math.max(
+        baseSpeed * (0.5 + Math.random() * 0.5),
+        0.02
+      );
+
+      const material = new THREE.MeshPhongMaterial({
+        color: color,
+        emissive: color,
+        emissiveIntensity: 2,
+        transparent: true,
+        opacity: 1,
+      });
+
+      const mesh = new THREE.Mesh(emitGeometry, material);
+      mesh.position.copy(position);
+      groupRef.current?.add(mesh);
+
+      emittedParticles.current.push({
+        mesh,
+        velocity: emitDir.multiplyScalar(particleSpeed),
+        life: 1.0,
+      });
+    }
+  };
 
   useFrame((state, delta) => {
     if (!groupRef.current) return;

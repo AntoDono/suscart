@@ -1,9 +1,15 @@
 import { SparklingSphereR3F } from './components/SparklingSphereR3F'
 import { useFrame } from '@react-three/fiber'
-import { useRef } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import * as THREE from 'three'
 
 export default function Experience() {
+  const [key, setKey] = useState(0)
+
+  // Force remount on initial load to fix particle initialization
+  useEffect(() => {
+    setKey(1)
+  }, [])
   const targetRotation = useRef(new THREE.Vector2(0, 0))
   const currentRotation = useRef(new THREE.Vector2(0, 0))
   const groupRef = useRef<THREE.Group>(null)
@@ -27,7 +33,7 @@ export default function Experience() {
     <group ref={groupRef}>
       <directionalLight position={ [ 1, 2, 3 ] } intensity={ 1.5 } />
       <ambientLight intensity={ 0.5 } />
-      <SparklingSphereR3F />
+      <SparklingSphereR3F key={key} />
     </group>
   )
 }
