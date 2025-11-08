@@ -14,19 +14,19 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  opacity: 0.5;
+  opacity: 1;
   transition: opacity 0.3s ease;
 }
 
 .mlh-logo img {
   height: 40px;
   width: auto;
-  filter: brightness(0) saturate(100%) invert(87%) sepia(13%) saturate(1029%) hue-rotate(77deg) brightness(95%) contrast(90%);
+  filter: brightness(0) invert(1) sepia(10%) saturate(200%) hue-rotate(60deg) brightness(200%);
 }
 
 .header-icon {
-  color: #7ECA9C;
-  opacity: 0.6;
+  color: #F5FFFA;
+  opacity: 1;
   font-size: 1.5rem;
   transition: opacity 0.3s ease, transform 0.2s ease;
   text-decoration: none;

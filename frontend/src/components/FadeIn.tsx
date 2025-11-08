@@ -5,6 +5,7 @@ import SolverOrb from './SolverOrb';
 const FadeIn = () => {
   const [isVisible, setIsVisible] = useState(true);
   const [cubeVisible, setCubeVisible] = useState(true);
+  const [shouldRender, setShouldRender] = useState(true);
 
   useEffect(() => {
     // Fade out cube first at 1.5 seconds
@@ -17,11 +18,19 @@ const FadeIn = () => {
       setIsVisible(false);
     }, 2500);
 
+    // Remove from DOM completely after fade out completes (2.5s + 3.5s transition = 6s)
+    const removeTimer = setTimeout(() => {
+      setShouldRender(false);
+    }, 6000);
+
     return () => {
       clearTimeout(cubeTimer);
       clearTimeout(overlayTimer);
+      clearTimeout(removeTimer);
     };
   }, []);
+
+  if (!shouldRender) return null;
 
   return (
     <div className={`fade-in-overlay ${!isVisible ? 'fade-out' : ''}`}>
