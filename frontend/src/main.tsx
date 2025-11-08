@@ -18,7 +18,11 @@ import InventoryView from './components/InventoryView'
 import CustomerPortal from './components/CustomerPortal'
 import MobileTerminal from './components/MobileTerminal'
 import useIsMobile from './hooks/useIsMobile'
-import { RiAnthropicFill } from "react-icons/ri"
+import { RiAnthropicFill, RiGeminiFill, RiClaudeFill } from "react-icons/ri"
+import { BsTwitterX } from "react-icons/bs"
+import { SiOpenai, SiTypescript, SiOpencv, SiPytorch, SiTensorflow } from "react-icons/si"
+import { FaReact, FaPython } from "react-icons/fa"
+import { TbBrandThreejs } from "react-icons/tb"
 
 function App() {
   const [currentPage, setCurrentPage] = useState(window.location.hash);
@@ -287,15 +291,41 @@ function App() {
       }}>
         <LogoLoop
           logos={[
-            { node: <RiAnthropicFill style={{ color: '#ffffff' }} /> },
-            { node: <span style={{ fontFamily: '"Geist Mono", monospace', fontWeight: 100, color: '#ffffff' }}>✦</span> },
-            { node: <RiAnthropicFill style={{ color: '#ffffff' }} /> },
-            { node: <span style={{ fontFamily: '"Geist Mono", monospace', fontWeight: 100, color: '#ffffff' }}>✦</span> },
+            { node: <RiAnthropicFill style={{ color: '#ffffff', transform: 'translateY(5px)' }} /> },
+            { node: <span style={{ fontFamily: '"Geist Mono", monospace', fontWeight: 100, color: '#ffffff', fontSize: '0.6em', opacity: 0.6 }}>✦</span> },
+            { node: <RiGeminiFill style={{ color: '#ffffff', fontSize: '0.8em', transform: 'translateY(5px)' }} /> },
+            { node: <span style={{ fontFamily: '"Geist Mono", monospace', fontWeight: 100, color: '#ffffff', fontSize: '0.6em', opacity: 0.6 }}>✦</span> },
+            { node: <SiOpenai style={{ color: '#ffffff', fontSize: '0.8em', transform: 'translateY(5px)' }} /> },
+            { node: <span style={{ fontFamily: '"Geist Mono", monospace', fontWeight: 100, color: '#ffffff', fontSize: '0.6em', opacity: 0.6 }}>✦</span> },
+            { node: <img src="/knot.png" alt="knot" style={{ filter: 'brightness(0) invert(1)', transform: 'translateY(8px)', height: '50px' }} /> },
+            { node: <span style={{ fontFamily: '"Geist Mono", monospace', fontWeight: 100, color: '#ffffff', fontSize: '0.6em', opacity: 0.6 }}>✦</span> },
+            { node: <BsTwitterX style={{ color: '#ffffff', fontSize: '0.8em', transform: 'translateY(5px)' }} /> },
+            { node: <span style={{ fontFamily: '"Geist Mono", monospace', fontWeight: 100, color: '#ffffff', fontSize: '0.6em', opacity: 0.6 }}>✦</span> },
+            { node: <img src="/tech.png" alt="tech" style={{ filter: 'brightness(0) invert(1)', transform: 'translateY(8px)' }} /> },
+            { node: <span style={{ fontFamily: '"Geist Mono", monospace', fontWeight: 100, color: '#ffffff', fontSize: '0.6em', opacity: 0.6 }}>✦</span> },
+            { node: <img src="/xai.png" alt="xai" style={{ filter: 'brightness(0) invert(1)', transform: 'translateY(8px)' }} /> },
+            { node: <span style={{ fontFamily: '"Geist Mono", monospace', fontWeight: 100, color: '#ffffff', fontSize: '0.6em', opacity: 0.6 }}>✦</span> },
+            { node: <SiTypescript style={{ color: '#ffffff', fontSize: '0.8em', transform: 'translateY(5px)' }} /> },
+            { node: <span style={{ fontFamily: '"Geist Mono", monospace', fontWeight: 100, color: '#ffffff', fontSize: '0.6em', opacity: 0.6 }}>✦</span> },
+            { node: <FaReact style={{ color: '#ffffff', fontSize: '0.8em', transform: 'translateY(5px)' }} /> },
+            { node: <span style={{ fontFamily: '"Geist Mono", monospace', fontWeight: 100, color: '#ffffff', fontSize: '0.6em', opacity: 0.6 }}>✦</span> },
+            { node: <FaPython style={{ color: '#ffffff', fontSize: '0.8em', transform: 'translateY(5px)' }} /> },
+            { node: <span style={{ fontFamily: '"Geist Mono", monospace', fontWeight: 100, color: '#ffffff', fontSize: '0.6em', opacity: 0.6 }}>✦</span> },
+            { node: <SiOpencv style={{ color: '#ffffff', fontSize: '0.8em', transform: 'translateY(5px)' }} /> },
+            { node: <span style={{ fontFamily: '"Geist Mono", monospace', fontWeight: 100, color: '#ffffff', fontSize: '0.6em', opacity: 0.6 }}>✦</span> },
+            { node: <TbBrandThreejs style={{ color: '#ffffff', fontSize: '0.8em', transform: 'translateY(5px)' }} /> },
+            { node: <span style={{ fontFamily: '"Geist Mono", monospace', fontWeight: 100, color: '#ffffff', fontSize: '0.6em', opacity: 0.6 }}>✦</span> },
+            { node: <SiPytorch style={{ color: '#ffffff', fontSize: '0.8em', transform: 'translateY(5px)' }} /> },
+            { node: <span style={{ fontFamily: '"Geist Mono", monospace', fontWeight: 100, color: '#ffffff', fontSize: '0.6em', opacity: 0.6 }}>✦</span> },
+            { node: <SiTensorflow style={{ color: '#ffffff', fontSize: '0.8em', transform: 'translateY(5px)' }} /> },
+            { node: <span style={{ fontFamily: '"Geist Mono", monospace', fontWeight: 100, color: '#ffffff', fontSize: '0.6em', opacity: 0.6 }}>✦</span> },
+            { node: <RiClaudeFill style={{ color: '#ffffff', transform: 'translateY(5px)' }} /> },
+            { node: <span style={{ fontFamily: '"Geist Mono", monospace', fontWeight: 100, color: '#ffffff', fontSize: '0.6em', opacity: 0.6 }}>✦</span> },
           ]}
           speed={50}
           direction="right"
           logoHeight={40}
-          gap={48}
+          gap={20}
           pauseOnHover={false}
           fadeOut={true}
         />
