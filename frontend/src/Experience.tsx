@@ -15,13 +15,13 @@ export default function Experience() {
   const groupRef = useRef<THREE.Group>(null)
 
   useFrame((state) => {
-    // Subtle movement based on mouse position
-    targetRotation.current.x = state.mouse.y * 0.3
-    targetRotation.current.y = state.mouse.x * 0.3
+    // More dramatic movement based on mouse position
+    targetRotation.current.x = state.mouse.y * 0.8
+    targetRotation.current.y = state.mouse.x * 0.8
 
     // Smooth lerp
-    currentRotation.current.x += (targetRotation.current.x - currentRotation.current.x) * 0.05
-    currentRotation.current.y += (targetRotation.current.y - currentRotation.current.y) * 0.05
+    currentRotation.current.x += (targetRotation.current.x - currentRotation.current.x) * 0.08
+    currentRotation.current.y += (targetRotation.current.y - currentRotation.current.y) * 0.08
 
     if (groupRef.current) {
       groupRef.current.rotation.x = currentRotation.current.x

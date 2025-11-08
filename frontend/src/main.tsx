@@ -41,7 +41,13 @@ function App() {
   // Admin page
   if (currentPage === '#admin') {
     return (
-      <div style={{ width: '100vw', height: '100vh', backgroundColor: '#000000' }}>
+      <div style={{
+        width: '100vw',
+        minHeight: '100vh',
+        backgroundColor: '#000000',
+        overflowY: 'auto',
+        overflowX: 'hidden'
+      }}>
         <AdminDashboard />
       </div>
     );
@@ -50,7 +56,13 @@ function App() {
   // Admin Inventory page
   if (currentPage === '#admin-inventory') {
     return (
-      <div style={{ width: '100vw', height: '100vh', backgroundColor: '#000000' }}>
+      <div style={{
+        width: '100vw',
+        minHeight: '100vh',
+        backgroundColor: '#000000',
+        overflowY: 'auto',
+        overflowX: 'hidden'
+      }}>
         <InventoryView />
       </div>
     );
@@ -69,6 +81,11 @@ function App() {
         <CustomerPortal />
       </div>
     );
+  }
+
+  // Show mobile terminal on mobile for landing page
+  if (isMobile) {
+    return <MobileTerminal />;
   }
 
   // Landing page

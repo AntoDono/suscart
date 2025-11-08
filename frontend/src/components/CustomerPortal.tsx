@@ -1,5 +1,12 @@
-import { useState, useEffect, useRef, Component } from 'react';
+import { useState, useEffect, useRef, Component, useMemo } from 'react';
 import type { ReactNode } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { AwesomeButton } from 'react-awesome-button';
+import 'react-awesome-button/dist/styles.css';
+import { IoMdMan, IoMdWoman } from 'react-icons/io';
+import { GiStrawberry, GiOrange, GiGrapes } from 'react-icons/gi';
+import FaultyTerminal from './FaultyTerminal';
+import GradientText from './GradientText';
 import './CustomerPortal.css';
 import { config } from '../config';
 
@@ -152,8 +159,19 @@ const CustomerPortalContent = () => {
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [knotTransactions, setKnotTransactions] = useState<KnotTransaction[]>([]);
   const [showTransactionType, setShowTransactionType] = useState<'suscart' | 'knot'>('knot');
-  
+  const [welcomeStep, setWelcomeStep] = useState(0);
+
   const wsRef = useRef<WebSocket | null>(null);
+
+  // Welcome animation sequence
+  useEffect(() => {
+    if (!customerId || !customer) {
+      const timer1 = setTimeout(() => setWelcomeStep(1), 3500); // Show login after welcome fades
+      return () => {
+        clearTimeout(timer1);
+      };
+    }
+  }, [customerId, customer]);
 
   // Load customer from localStorage on mount
   useEffect(() => {
@@ -353,6 +371,41 @@ const CustomerPortalContent = () => {
     }
   };
 
+  const createFadeTransition = (onComplete: () => void) => {
+    // Create fade to black overlay
+    const fadeOverlay = document.createElement('div');
+    fadeOverlay.style.position = 'fixed';
+    fadeOverlay.style.top = '0';
+    fadeOverlay.style.left = '0';
+    fadeOverlay.style.width = '100vw';
+    fadeOverlay.style.height = '100vh';
+    fadeOverlay.style.backgroundColor = '#000000';
+    fadeOverlay.style.opacity = '0';
+    fadeOverlay.style.transition = 'opacity 1s ease-in-out';
+    fadeOverlay.style.zIndex = '9999';
+    fadeOverlay.style.pointerEvents = 'none';
+
+    document.body.appendChild(fadeOverlay);
+
+    // Trigger fade
+    setTimeout(() => {
+      fadeOverlay.style.opacity = '1';
+    }, 10);
+
+    // Execute callback and fade out
+    setTimeout(() => {
+      onComplete();
+      setTimeout(() => {
+        fadeOverlay.style.opacity = '0';
+        setTimeout(() => {
+          if (document.body.contains(fadeOverlay)) {
+            document.body.removeChild(fadeOverlay);
+          }
+        }, 1000);
+      }, 100);
+    }, 1000);
+  };
+
   const syncFromKnot = async () => {
     if (!knotUserId.trim()) {
       alert('Please enter a Knot user ID (e.g., "abc" for test)');
@@ -373,16 +426,19 @@ const CustomerPortalContent = () => {
       if (response.ok) {
         const data = await response.json();
         const newCustomerId = data.customer.id;
-        
-        // Save customer ID
-        setCustomerId(newCustomerId);
-        localStorage.setItem('suscart_customer_id', newCustomerId.toString());
-        
-        // Load customer data
-        await loadCustomerData(newCustomerId);
-        
-        // Connect WebSocket
-        connectWebSocket(newCustomerId);
+
+        // Create fade transition
+        createFadeTransition(() => {
+          // Save customer ID
+          setCustomerId(newCustomerId);
+          localStorage.setItem('suscart_customer_id', newCustomerId.toString());
+
+          // Load customer data
+          loadCustomerData(newCustomerId);
+
+          // Connect WebSocket
+          connectWebSocket(newCustomerId);
+        });
       } else {
         const error = await response.json();
         alert(`Error: ${error.error || 'Failed to sync from Knot'}`);
@@ -432,81 +488,194 @@ const CustomerPortalContent = () => {
     return labels[status] || status;
   };
 
-  // If not logged in, show sync interface
+  // Memoize FaultyTerminal props to prevent re-creation on re-renders
+  const terminalGridMul = useMemo(() => [1, 1] as [number, number], []);
+  const terminalGradientColors = useMemo(() => ['#7ECA9C', '#AAF0D1', '#CCFFBD', '#AAF0D1', '#7ECA9C'], []);
+
+  // If not logged in, show welcome screen
   if (!customerId || !customer) {
     return (
-      <div className="customer-portal login-view">
-        <div className="login-container">
-          <h1>Welcome to SusCart</h1>
-          <p className="subtitle">Get personalized deals based on your shopping history</p>
-          
-          <div className="knot-sync-section">
-            <h2>Connect Your Account</h2>
-            <p>Link your grocery purchase history via Knot API</p>
-            
-            <div className="sync-form">
-              <input
-                type="text"
-                value={knotUserId}
-                onChange={(e) => setKnotUserId(e.target.value)}
-                placeholder="Enter Knot user ID (e.g., 'abc')"
-                className="knot-input"
-              />
-              <button 
-                onClick={syncFromKnot} 
-                disabled={syncLoading}
-                className="sync-button"
-              >
-                {syncLoading ? 'Syncing...' : 'Connect with Knot'}
-              </button>
-            </div>
-            
-            <div className="test-users">
-              <p className="hint">Test Users:</p>
-              <button onClick={() => setKnotUserId('abc')} className="test-user-btn">
-                Use 'abc' (Test Data)
-              </button>
-              <button onClick={() => setKnotUserId('user123')} className="test-user-btn">
-                Use 'user123' (Mock)
-              </button>
-            </div>
-          </div>
-
-          <div className="or-divider">
-            <span>OR</span>
-          </div>
-
-          <div className="existing-users">
-            <h2>Existing Customers</h2>
-            <p>Demo with pre-loaded customers</p>
-            <div className="user-buttons">
-              <button onClick={() => { 
-                setCustomerId(1); 
-                localStorage.setItem('suscart_customer_id', '1');
-                loadCustomerData(1); 
-                connectWebSocket(1); 
-              }} className="user-btn">
-                Alice Johnson (Likes: Apple, Banana, Strawberry)
-              </button>
-              <button onClick={() => { 
-                setCustomerId(2); 
-                localStorage.setItem('suscart_customer_id', '2');
-                loadCustomerData(2); 
-                connectWebSocket(2); 
-              }} className="user-btn">
-                Bob Smith (Likes: Orange, Grape, Watermelon)
-              </button>
-              <button onClick={() => { 
-                setCustomerId(3); 
-                localStorage.setItem('suscart_customer_id', '3');
-                loadCustomerData(3); 
-                connectWebSocket(3); 
-              }} className="user-btn">
-                Carol White (Likes: Mango, Blueberry, Pear)
-              </button>
-            </div>
-          </div>
+      <div className="customer-portal welcome-view">
+        {/* Fullscreen FaultyTerminal Background */}
+        <div className="welcome-terminal-background">
+          <FaultyTerminal
+            scale={2.5}
+            gridMul={terminalGridMul}
+            digitSize={1.8}
+            timeScale={1.5}
+            pause={false}
+            scanlineIntensity={0.7}
+            glitchAmount={1}
+            flickerAmount={1}
+            noiseAmp={1}
+            chromaticAberration={0}
+            dither={0}
+            curvature={0.15}
+            tint="#2a4a2a"
+            mouseReact={false}
+            mouseStrength={0}
+            pageLoadAnimation={true}
+            brightness={0.35}
+          />
         </div>
+
+        {/* Welcome Text - fades out after initial display */}
+        <AnimatePresence mode="wait">
+          {welcomeStep === 0 ? (
+            <motion.div
+              key="welcome"
+              className="welcome-text-container"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{
+                initial: { duration: 0.8, ease: "easeOut" },
+                exit: { duration: 1.2, ease: "easeIn" }
+              }}
+            >
+              <h1 className="welcome-title">
+                <GradientText
+                  colors={terminalGradientColors}
+                  animationSpeed={4}
+                  showBorder={false}
+                >
+                  WELCOME TO
+                </GradientText>
+              </h1>
+
+              <img
+                src="/edgecart.png"
+                alt="edgecart"
+                className="welcome-logo-center"
+              />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="login"
+              className="portal-login-wrapper"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 1, ease: "easeOut", delay: 0.2 }}
+            >
+              <div className="portal-login-content">
+                <h2 className="portal-login-title">
+                  <GradientText
+                    colors={terminalGradientColors}
+                    animationSpeed={4}
+                    showBorder={false}
+                  >
+                    CUSTOMER PORTAL
+                  </GradientText>
+                </h2>
+
+                <div className="portal-terminal">
+                  <div className="portal-terminal-header">
+                    <div className="terminal-buttons">
+                      <span className="terminal-button close"></span>
+                      <span className="terminal-button minimize"></span>
+                      <span className="terminal-button maximize"></span>
+                    </div>
+                    <div className="terminal-title">customer@edgecart</div>
+                  </div>
+                  <div className="portal-terminal-body">
+                    <div className="portal-terminal-content">
+                      <p className="terminal-prompt">$ connect knot account</p>
+                      <p className="terminal-info">sync your purchase history to get personalized deals</p>
+
+                      <div className="terminal-input-group">
+                        <span className="terminal-prefix">{'>'}</span>
+                        <input
+                          type="text"
+                          value={knotUserId}
+                          onChange={(e) => setKnotUserId(e.target.value)}
+                          placeholder="enter knot user id"
+                          className="terminal-input"
+                          disabled={syncLoading}
+                          onKeyDown={(e) => e.key === 'Enter' && syncFromKnot()}
+                        />
+                      </div>
+
+                      <div className="profile-cards-section">
+                        <p className="terminal-hint">or try a demo profile:</p>
+                        <div className="profile-cards">
+                          <button
+                            onClick={() => setKnotUserId('abc')}
+                            className="profile-card"
+                          >
+                            <div className="profile-header">
+                              <IoMdWoman className="profile-icon" />
+                              <div className="profile-info">
+                                <div className="profile-name">sarah chen</div>
+                                <div className="profile-id">@abc</div>
+                              </div>
+                            </div>
+                            <div className="profile-bio">health-conscious mom who loves organic berries</div>
+                            <div className="profile-likes">
+                              <GiStrawberry className="like-icon" />
+                              <span>strawberries, blueberries, spinach</span>
+                            </div>
+                          </button>
+
+                          <button
+                            onClick={() => setKnotUserId('def')}
+                            className="profile-card"
+                          >
+                            <div className="profile-header">
+                              <IoMdMan className="profile-icon" />
+                              <div className="profile-info">
+                                <div className="profile-name">marcus lee</div>
+                                <div className="profile-id">@def</div>
+                              </div>
+                            </div>
+                            <div className="profile-bio">fitness enthusiast buying citrus for smoothies</div>
+                            <div className="profile-likes">
+                              <GiOrange className="like-icon" />
+                              <span>oranges, grapefruits, kale</span>
+                            </div>
+                          </button>
+
+                          <button
+                            onClick={() => setKnotUserId('ghi')}
+                            className="profile-card"
+                          >
+                            <div className="profile-header">
+                              <IoMdWoman className="profile-icon" />
+                              <div className="profile-info">
+                                <div className="profile-name">emily rodriguez</div>
+                                <div className="profile-id">@ghi</div>
+                              </div>
+                            </div>
+                            <div className="profile-bio">foodie exploring exotic fruits and vegetables</div>
+                            <div className="profile-likes">
+                              <GiGrapes className="like-icon" />
+                              <span>grapes, dragon fruit, kiwi</span>
+                            </div>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="portal-login-button-wrapper">
+                  <AwesomeButton
+                    type="primary"
+                    onPress={syncFromKnot}
+                    disabled={syncLoading}
+                  >
+                    <GradientText
+                      colors={terminalGradientColors}
+                      animationSpeed={4}
+                      showBorder={false}
+                    >
+                      {syncLoading ? 'SYNCING...' : 'CONNECT'}
+                    </GradientText>
+                  </AwesomeButton>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     );
   }

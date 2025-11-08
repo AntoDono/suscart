@@ -1,4 +1,3 @@
-import React from 'react';
 import { FaGithub } from 'react-icons/fa';
 import { SiDevpost } from 'react-icons/si';
 import Balatro from './Balatro';

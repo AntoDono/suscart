@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { AwesomeButton } from 'react-awesome-button';
 import 'react-awesome-button/dist/styles.css';
 import GradientText from './GradientText';
+import LiquidChrome from './LiquidChrome';
 import './AdminLogin.css';
 
 interface TerminalLine {
@@ -167,7 +168,14 @@ const AdminLogin = () => {
 
       <div className="camera-feed">
         <div className="camera-feed-content">
-          {/* Camera feed will be integrated here */}
+          <LiquidChrome
+            baseColor={[0.08, 0.18, 0.14]}
+            speed={0.5}
+            amplitude={0.4}
+            frequencyX={3}
+            frequencyY={3}
+            interactive={true}
+          />
         </div>
       </div>
 
