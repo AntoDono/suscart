@@ -14,7 +14,19 @@ load_dotenv()
 # Import our modules
 from models import db, Store, FruitInventory, FreshnessStatus, Customer, PurchaseHistory, Recommendation, WasteLog
 from database import init_db, seed_sample_data
-from knot_integration import get_knot_client
+
+# Import Knot client with fallback support
+try:
+    from knot_fallback import KnotClientWithFallback
+    use_fallback = os.getenv('KNOT_FALLBACK_TO_TUNNEL', 'true').lower() == 'true'
+    if use_fallback and os.getenv('KNOT_ENV', 'tunnel') != 'tunnel' and os.getenv('KNOT_USE_REAL', 'false').lower() == 'true':
+        from knot_fallback import KnotClientWithFallback as get_knot_client_class
+        def get_knot_client():
+            return KnotClientWithFallback()
+    else:
+        from knot_integration import get_knot_client
+except ImportError:
+    from knot_integration import get_knot_client
 from detect_fruits import (
     detect, 
     load_ripe_detection_model, 
@@ -432,33 +444,49 @@ def create_customer():
 
 # ============ Knot API Integration ============
 
-@app.route('/api/knot/sync/<knot_customer_id>', methods=['POST'])
-def sync_from_knot(knot_customer_id):
-    """Sync customer data from Knot API"""
+@app.route('/api/knot/sync/<external_user_id>', methods=['POST'])
+def sync_from_knot(external_user_id):
+    """
+    Sync customer data from Knot API
+    
+    For mock mode: Use 'user123' or 'user456'
+    For real mode: Use your customer's ID
+    
+    Optional JSON body: {"name": "...", "email": "..."}
+    """
     try:
-        # Get data from Knot
-        sync_data = knot_client.sync_customer_data(knot_customer_id)
+        # Get optional customer info from request
+        data = request.get_json() if request.is_json else {}
+        customer_name = data.get('name')
+        customer_email = data.get('email')
+        
+        # Get transaction data from Knot
+        sync_data = knot_client.sync_customer_data(
+            external_user_id,
+            customer_name=customer_name,
+            customer_email=customer_email
+        )
         
         if not sync_data:
-            return jsonify({'error': 'Customer not found in Knot'}), 404
+            return jsonify({'error': 'No transactions found for this user in Knot'}), 404
         
         # Check if customer exists
-        customer = Customer.query.filter_by(knot_customer_id=knot_customer_id).first()
+        customer = Customer.query.filter_by(knot_customer_id=external_user_id).first()
         
         if not customer:
             # Create new customer
             customer = Customer(
-                knot_customer_id=knot_customer_id,
+                knot_customer_id=external_user_id,
                 name=sync_data['name'],
-                email=sync_data['email'],
-                phone=sync_data['phone']
+                email=sync_data.get('email'),
+                phone=sync_data.get('phone')
             )
             db.session.add(customer)
         else:
             # Update existing customer
             customer.name = sync_data['name']
-            customer.email = sync_data['email']
-            customer.phone = sync_data['phone']
+            if sync_data.get('email'):
+                customer.email = sync_data['email']
             customer.last_active = datetime.utcnow()
         
         # Update preferences
@@ -468,12 +496,128 @@ def sync_from_knot(knot_customer_id):
         
         return jsonify({
             'message': 'Customer synced from Knot',
-            'customer': customer.to_dict()
+            'customer': customer.to_dict(),
+            'transaction_count': sync_data.get('transaction_count', sync_data.get('order_count', 0)),
+            'preferences': sync_data['preferences']
         }), 200
     
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/knot/test', methods=['GET'])
+def test_knot_connection():
+    """Test Knot API connection"""
+    try:
+        # Determine which test user to use based on environment
+        knot_env = os.getenv('KNOT_ENV', 'tunnel')
+        
+        if knot_env == 'tunnel':
+            test_user = 'abc'
+        elif knot_env in ['dev', 'prod']:
+            test_user = '234638'
+        else:
+            test_user = 'user123'
+        
+        sync_data = knot_client.sync_customer_data(test_user)
+        
+        if sync_data:
+            return jsonify({
+                'status': 'success',
+                'message': 'Knot API connection working',
+                'mode': 'mock' if hasattr(knot_client, 'mock_data') else 'real',
+                'environment': knot_env,
+                'test_user': test_user,
+                'sample_data': sync_data
+            }), 200
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': 'No data returned from Knot API',
+                'environment': knot_env,
+                'test_user': test_user,
+                'note': 'Dev/Prod environments may require session creation first. See /api/knot/session/create'
+            }), 500
+    
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e),
+            'environment': os.getenv('KNOT_ENV', 'tunnel')
+        }), 500
+
+
+@app.route('/api/knot/session/create', methods=['POST'])
+def create_knot_session():
+    """
+    Create a Knot session for transaction linking (required for dev/prod)
+    
+    POST body: {"external_user_id": "your_user_id"}
+    """
+    try:
+        from knot_session import KnotSessionManager
+        
+        data = request.get_json()
+        external_user_id = data.get('external_user_id', 'test_user_001')
+        
+        manager = KnotSessionManager()
+        session = manager.create_session(external_user_id)
+        
+        if session:
+            return jsonify({
+                'status': 'success',
+                'message': 'Session created. Use session_id with Knot SDK.',
+                'session': session,
+                'next_steps': [
+                    'Invoke Knot SDK with this session_id',
+                    'User logs in with test credentials: user_good_transactions / pass_good',
+                    'Wait for transactions to be generated',
+                    'Then call /api/knot/sync/{external_user_id}'
+                ]
+            }), 200
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': 'Failed to create session'
+            }), 500
+    
+    except ImportError:
+        return jsonify({
+            'status': 'error',
+            'message': 'Session manager not available. Use tunnel mode or install SDK.'
+        }), 500
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+
+@app.route('/api/knot/merchants', methods=['GET'])
+def list_knot_merchants():
+    """List all available Knot merchants"""
+    try:
+        from knot_session import KnotSessionManager
+        
+        manager = KnotSessionManager()
+        merchants = manager.list_merchants()
+        
+        if merchants:
+            return jsonify(merchants), 200
+        else:
+            return jsonify({
+                'error': 'Failed to list merchants'
+            }), 500
+    
+    except ImportError:
+        return jsonify({
+            'error': 'Session manager not available. Use tunnel mode.'
+        }), 500
+    except Exception as e:
+        return jsonify({
+            'error': str(e)
+        }), 500
 
 
 # ============ Recommendations API ============
