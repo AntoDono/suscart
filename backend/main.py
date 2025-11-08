@@ -411,33 +411,49 @@ def create_customer():
 
 # ============ Knot API Integration ============
 
-@app.route('/api/knot/sync/<knot_customer_id>', methods=['POST'])
-def sync_from_knot(knot_customer_id):
-    """Sync customer data from Knot API"""
+@app.route('/api/knot/sync/<external_user_id>', methods=['POST'])
+def sync_from_knot(external_user_id):
+    """
+    Sync customer data from Knot API
+    
+    For mock mode: Use 'user123' or 'user456'
+    For real mode: Use your customer's ID
+    
+    Optional JSON body: {"name": "...", "email": "..."}
+    """
     try:
-        # Get data from Knot
-        sync_data = knot_client.sync_customer_data(knot_customer_id)
+        # Get optional customer info from request
+        data = request.get_json() if request.is_json else {}
+        customer_name = data.get('name')
+        customer_email = data.get('email')
+        
+        # Get transaction data from Knot
+        sync_data = knot_client.sync_customer_data(
+            external_user_id,
+            customer_name=customer_name,
+            customer_email=customer_email
+        )
         
         if not sync_data:
-            return jsonify({'error': 'Customer not found in Knot'}), 404
+            return jsonify({'error': 'No transactions found for this user in Knot'}), 404
         
         # Check if customer exists
-        customer = Customer.query.filter_by(knot_customer_id=knot_customer_id).first()
+        customer = Customer.query.filter_by(knot_customer_id=external_user_id).first()
         
         if not customer:
             # Create new customer
             customer = Customer(
-                knot_customer_id=knot_customer_id,
+                knot_customer_id=external_user_id,
                 name=sync_data['name'],
-                email=sync_data['email'],
-                phone=sync_data['phone']
+                email=sync_data.get('email'),
+                phone=sync_data.get('phone')
             )
             db.session.add(customer)
         else:
             # Update existing customer
             customer.name = sync_data['name']
-            customer.email = sync_data['email']
-            customer.phone = sync_data['phone']
+            if sync_data.get('email'):
+                customer.email = sync_data['email']
             customer.last_active = datetime.utcnow()
         
         # Update preferences
@@ -447,12 +463,42 @@ def sync_from_knot(knot_customer_id):
         
         return jsonify({
             'message': 'Customer synced from Knot',
-            'customer': customer.to_dict()
+            'customer': customer.to_dict(),
+            'transaction_count': sync_data.get('transaction_count', 0),
+            'preferences': sync_data['preferences']
         }), 200
     
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/knot/test', methods=['GET'])
+def test_knot_connection():
+    """Test Knot API connection"""
+    try:
+        # Try to sync test user
+        test_user = 'user123'  # Mock user
+        sync_data = knot_client.sync_customer_data(test_user)
+        
+        if sync_data:
+            return jsonify({
+                'status': 'success',
+                'message': 'Knot API connection working',
+                'mode': 'mock' if hasattr(knot_client, 'mock_data') else 'real',
+                'sample_data': sync_data
+            }), 200
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': 'No data returned from Knot API'
+            }), 500
+    
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
 
 
 # ============ Recommendations API ============

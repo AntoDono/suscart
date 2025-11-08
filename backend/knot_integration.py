@@ -1,177 +1,248 @@
 """
 Knot API Integration
-Handles communication with Knot API for customer purchase data
-Documentation: https://www.useknotapi.com/docs
+Handles communication with Knot API for customer transaction data
+Documentation: https://docs.knotapi.com/
 """
 
 import requests
 from datetime import datetime, timedelta
 import os
+import base64
 
 
 class KnotAPIClient:
     """Client for interacting with Knot API"""
     
-    def __init__(self, api_key=None):
+    # Merchant IDs from Knot API
+    MERCHANTS = {
+        'amazon': 44,
+        'costco': 165,
+        'doordash': 19,
+        'instacart': 40,
+        'target': 12,
+        'ubereats': 36,
+        'walmart': 45
+    }
+    
+    def __init__(self, client_id=None, secret=None):
         """
         Initialize Knot API client
         
         Args:
-            api_key: Knot API key (defaults to KNOT_API_KEY env variable)
+            client_id: Knot client ID (defaults to KNOT_CLIENT_ID env variable)
+            secret: Knot secret (defaults to KNOT_SECRET env variable)
         """
-        self.api_key = api_key or os.getenv('KNOT_API_KEY')
-        self.base_url = os.getenv('KNOT_API_URL', 'https://api.useknotapi.com/v1')
+        self.client_id = client_id or os.getenv('KNOT_CLIENT_ID', 'dda0778d-9486-47f8-bd80-6f2512f9bcdb')
+        self.secret = secret or os.getenv('KNOT_SECRET', '884d84e855054c32a8e39d08fcd9845d')
+        
+        # Use development endpoint (for testing) or production
+        self.base_url = os.getenv('KNOT_API_URL', 'https://development.knotapi.com')
+        
+        # Create Basic Auth header
+        credentials = f"{self.client_id}:{self.secret}"
+        encoded = base64.b64encode(credentials.encode()).decode()
+        
         self.headers = {
-            'Authorization': f'Bearer {self.api_key}',
+            'Authorization': f'Basic {encoded}',
             'Content-Type': 'application/json'
         }
     
-    def get_customer(self, knot_customer_id):
+    def sync_transactions(self, external_user_id, merchant_ids=None, limit=100, cursor=None):
         """
-        Get customer details from Knot
+        Sync transactions from Knot API
         
         Args:
-            knot_customer_id: Customer ID in Knot system
+            external_user_id: Your customer's ID in your system
+            merchant_ids: List of merchant IDs to sync (defaults to grocery stores)
+            limit: Maximum number of transactions to return (default 100)
+            cursor: Pagination cursor for next page
             
         Returns:
-            dict: Customer data
+            dict: Transaction data from Knot
         """
-        try:
-            response = requests.get(
-                f'{self.base_url}/customers/{knot_customer_id}',
-                headers=self.headers,
-                timeout=10
-            )
-            response.raise_for_status()
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            print(f"Error fetching customer from Knot: {e}")
-            return None
+        # Default to grocery-related merchants if none specified
+        if merchant_ids is None:
+            merchant_ids = [
+                self.MERCHANTS['instacart'],  # Instacart (most relevant for groceries)
+                self.MERCHANTS['walmart'],    # Walmart
+                self.MERCHANTS['target'],     # Target
+                self.MERCHANTS['costco'],     # Costco
+                self.MERCHANTS['amazon'],     # Amazon Fresh
+            ]
+        
+        all_transactions = []
+        
+        # Sync from each merchant
+        for merchant_id in merchant_ids:
+            try:
+                payload = {
+                    'merchant_id': merchant_id,
+                    'external_user_id': external_user_id,
+                    'limit': limit
+                }
+                
+                if cursor:
+                    payload['cursor'] = cursor
+                
+                response = requests.post(
+                    f'{self.base_url}/transactions/sync',
+                    headers=self.headers,
+                    json=payload,
+                    timeout=10
+                )
+                response.raise_for_status()
+                data = response.json()
+                
+                transactions = data.get('transactions', [])
+                all_transactions.extend(transactions)
+                
+                print(f"✅ Synced {len(transactions)} transactions from merchant {merchant_id}")
+                
+            except requests.exceptions.RequestException as e:
+                print(f"⚠️  Error syncing from merchant {merchant_id}: {e}")
+                continue
+        
+        return {
+            'transactions': all_transactions,
+            'count': len(all_transactions),
+            'external_user_id': external_user_id
+        }
     
-    def get_customer_purchases(self, knot_customer_id, start_date=None, end_date=None):
+    def get_customer_transactions(self, external_user_id, limit=100):
         """
-        Get customer purchase history from Knot
+        Convenience method to get all grocery transactions for a customer
         
         Args:
-            knot_customer_id: Customer ID in Knot system
-            start_date: Start date for purchase history (datetime)
-            end_date: End date for purchase history (datetime)
+            external_user_id: Your customer's ID
+            limit: Max transactions per merchant
             
         Returns:
-            list: List of purchase transactions
+            list: All transactions
         """
-        try:
-            params = {}
-            if start_date:
-                params['start_date'] = start_date.isoformat()
-            if end_date:
-                params['end_date'] = end_date.isoformat()
-            
-            response = requests.get(
-                f'{self.base_url}/customers/{knot_customer_id}/purchases',
-                headers=self.headers,
-                params=params,
-                timeout=10
-            )
-            response.raise_for_status()
-            return response.json().get('purchases', [])
-        except requests.exceptions.RequestException as e:
-            print(f"Error fetching purchases from Knot: {e}")
-            return []
+        result = self.sync_transactions(external_user_id, limit=limit)
+        return result.get('transactions', [])
     
-    def sync_customer_data(self, knot_customer_id):
+    def sync_customer_data(self, external_user_id, customer_name=None, customer_email=None):
         """
-        Sync customer data from Knot to SusCart
+        Sync customer transaction data from Knot to SusCart
         
         Args:
-            knot_customer_id: Customer ID in Knot system
+            external_user_id: Your customer's ID in your system
+            customer_name: Customer's name (optional)
+            customer_email: Customer's email (optional)
             
         Returns:
             dict: Synchronized customer data ready for SusCart
         """
-        customer_data = self.get_customer(knot_customer_id)
-        if not customer_data:
+        # Get transactions from Knot
+        transactions = self.get_customer_transactions(external_user_id, limit=100)
+        
+        if not transactions:
+            print(f"⚠️  No transactions found for user {external_user_id}")
             return None
         
-        # Get recent purchases (last 90 days)
-        end_date = datetime.utcnow()
-        start_date = end_date - timedelta(days=90)
-        purchases = self.get_customer_purchases(knot_customer_id, start_date, end_date)
-        
-        # Analyze purchase patterns
-        preferences = self._analyze_purchase_patterns(purchases)
+        # Analyze purchase patterns from transactions
+        preferences = self._analyze_purchase_patterns(transactions)
         
         return {
-            'knot_customer_id': knot_customer_id,
-            'name': customer_data.get('name', 'Unknown'),
-            'email': customer_data.get('email'),
-            'phone': customer_data.get('phone'),
+            'external_user_id': external_user_id,
+            'knot_customer_id': external_user_id,  # Use same ID for compatibility
+            'name': customer_name or f'Customer {external_user_id}',
+            'email': customer_email,
+            'phone': None,
             'preferences': preferences,
-            'purchases': purchases
+            'transactions': transactions,
+            'transaction_count': len(transactions)
         }
     
-    def _analyze_purchase_patterns(self, purchases):
+    def _analyze_purchase_patterns(self, transactions):
         """
-        Analyze customer purchase history to determine preferences
+        Analyze customer transaction history to determine preferences
         
         Args:
-            purchases: List of purchase transactions
+            transactions: List of transaction data from Knot API
             
         Returns:
             dict: Customer preferences
         """
-        if not purchases:
+        if not transactions:
             return {
                 'favorite_fruits': [],
+                'favorite_products': [],
                 'purchase_frequency': 0,
                 'average_spend': 0,
                 'preferred_discount': 0,
-                'max_price': 10.0
+                'max_price': 10.0,
+                'merchants_used': []
             }
         
-        # Count fruit purchases
+        # Fruit keywords to identify produce
+        fruit_keywords = [
+            'apple', 'banana', 'orange', 'grape', 'strawberry', 'blueberry',
+            'mango', 'pear', 'watermelon', 'peach', 'plum', 'cherry', 'kiwi',
+            'pineapple', 'cantaloupe', 'honeydew', 'lemon', 'lime', 'grapefruit',
+            'berry', 'fruit', 'produce', 'fresh', 'organic'
+        ]
+        
         fruit_counts = {}
+        product_counts = {}
         total_spend = 0
-        discounted_purchases = 0
-        total_discount = 0
+        merchants = set()
         
-        for purchase in purchases:
-            # Extract fruit type from purchase
-            items = purchase.get('items', [])
-            for item in items:
-                category = item.get('category', '').lower()
-                if 'fruit' in category or item.get('type', '').lower() in [
-                    'apple', 'banana', 'orange', 'grape', 'strawberry', 
-                    'blueberry', 'mango', 'pear', 'watermelon'
-                ]:
-                    fruit_type = item.get('type', 'unknown').lower()
-                    fruit_counts[fruit_type] = fruit_counts.get(fruit_type, 0) + 1
+        for transaction in transactions:
+            # Track merchant
+            merchant = transaction.get('merchant', {}).get('name', 'Unknown')
+            merchants.add(merchant)
+            
+            # Get transaction amount
+            amount = transaction.get('amount', 0)
+            total_spend += abs(amount)  # Use abs in case of refunds
+            
+            # Analyze SKU data if available
+            skus = transaction.get('skus', [])
+            description = transaction.get('description', '').lower()
+            
+            # Check transaction description for fruits
+            for keyword in fruit_keywords:
+                if keyword in description:
+                    fruit_counts[keyword] = fruit_counts.get(keyword, 0) + 1
+            
+            # Analyze SKUs (line items)
+            for sku in skus:
+                sku_name = sku.get('name', '').lower()
+                sku_category = sku.get('category', '').lower()
                 
-                # Track spending
-                price = item.get('price', 0)
-                total_spend += price
+                # Track product
+                if sku_name:
+                    product_counts[sku_name] = product_counts.get(sku_name, 0) + 1
                 
-                # Track discount preference
-                discount = item.get('discount_percentage', 0)
-                if discount > 0:
-                    discounted_purchases += 1
-                    total_discount += discount
+                # Check if it's a fruit
+                if 'produce' in sku_category or 'fruit' in sku_category:
+                    for keyword in fruit_keywords:
+                        if keyword in sku_name:
+                            fruit_counts[keyword] = fruit_counts.get(keyword, 0) + 1
         
-        # Get top 3 favorite fruits
+        # Get top 5 favorite fruits
         sorted_fruits = sorted(fruit_counts.items(), key=lambda x: x[1], reverse=True)
-        favorite_fruits = [fruit for fruit, _ in sorted_fruits[:3]]
+        favorite_fruits = [fruit for fruit, _ in sorted_fruits[:5]]
+        
+        # Get top 5 products
+        sorted_products = sorted(product_counts.items(), key=lambda x: x[1], reverse=True)
+        favorite_products = [product for product, _ in sorted_products[:5]]
         
         # Calculate averages
-        num_purchases = len(purchases)
-        average_spend = total_spend / num_purchases if num_purchases > 0 else 0
-        preferred_discount = total_discount / discounted_purchases if discounted_purchases > 0 else 0
+        num_transactions = len(transactions)
+        average_spend = total_spend / num_transactions if num_transactions > 0 else 0
         
         return {
             'favorite_fruits': favorite_fruits,
-            'purchase_frequency': num_purchases / 90,  # purchases per day
+            'favorite_products': favorite_products,
+            'purchase_frequency': num_transactions / 90,  # transactions per day (assume 90 day window)
             'average_spend': round(average_spend, 2),
-            'preferred_discount': round(preferred_discount, 2),
-            'max_price': round(average_spend * 1.5, 2)  # willing to pay 1.5x average
+            'preferred_discount': 20,  # Default to 20% - adjust based on actual data if available
+            'max_price': round(average_spend * 2, 2),  # willing to pay 2x average transaction
+            'merchants_used': list(merchants),
+            'total_transactions': num_transactions
         }
     
     def webhook_handler(self, webhook_data):
@@ -214,74 +285,102 @@ class MockKnotAPIClient(KnotAPIClient):
         self.mock_data = self._generate_mock_data()
     
     def _generate_mock_data(self):
-        """Generate mock customer and purchase data"""
+        """Generate mock transaction data in Knot API format"""
         return {
-            'KNOT-CUST-1000': {
-                'customer': {
-                    'id': 'KNOT-CUST-1000',
-                    'name': 'Alice Johnson',
-                    'email': 'alice@example.com',
-                    'phone': '(555) 111-2222'
-                },
-                'purchases': [
+            'user123': {
+                'transactions': [
                     {
-                        'transaction_id': 'TXN-001',
-                        'date': (datetime.utcnow() - timedelta(days=5)).isoformat(),
-                        'items': [
-                            {'type': 'apple', 'category': 'fruit', 'quantity': 3, 'price': 8.97, 'discount_percentage': 10},
-                            {'type': 'banana', 'category': 'fruit', 'quantity': 6, 'price': 5.94, 'discount_percentage': 0}
+                        'id': 'txn_mock_001',
+                        'merchant': {'id': 40, 'name': 'Instacart'},
+                        'amount': -45.67,
+                        'date': (datetime.utcnow() - timedelta(days=3)).isoformat(),
+                        'description': 'Instacart - Fresh produce delivery',
+                        'skus': [
+                            {'name': 'Organic Bananas', 'category': 'produce', 'amount': -5.99},
+                            {'name': 'Honeycrisp Apples', 'category': 'produce', 'amount': -8.99},
+                            {'name': 'Fresh Strawberries', 'category': 'produce', 'amount': -6.99}
                         ]
                     },
                     {
-                        'transaction_id': 'TXN-002',
-                        'date': (datetime.utcnow() - timedelta(days=15)).isoformat(),
-                        'items': [
-                            {'type': 'strawberry', 'category': 'fruit', 'quantity': 2, 'price': 7.98, 'discount_percentage': 25}
+                        'id': 'txn_mock_002',
+                        'merchant': {'id': 45, 'name': 'Walmart'},
+                        'amount': -32.45,
+                        'date': (datetime.utcnow() - timedelta(days=7)).isoformat(),
+                        'description': 'Walmart Grocery',
+                        'skus': [
+                            {'name': 'Navel Oranges 3lb', 'category': 'produce', 'amount': -7.99},
+                            {'name': 'Red Grapes', 'category': 'produce', 'amount': -5.49},
+                            {'name': 'Mango', 'category': 'produce', 'amount': -2.99}
+                        ]
+                    },
+                    {
+                        'id': 'txn_mock_003',
+                        'merchant': {'id': 40, 'name': 'Instacart'},
+                        'amount': -28.33,
+                        'date': (datetime.utcnow() - timedelta(days=14)).isoformat(),
+                        'description': 'Instacart - Weekly groceries',
+                        'skus': [
+                            {'name': 'Organic Blueberries', 'category': 'produce', 'amount': -6.99},
+                            {'name': 'Gala Apples', 'category': 'produce', 'amount': -7.49},
+                            {'name': 'Bananas', 'category': 'produce', 'amount': -3.99}
                         ]
                     }
                 ]
             },
-            'KNOT-CUST-1001': {
-                'customer': {
-                    'id': 'KNOT-CUST-1001',
-                    'name': 'Bob Smith',
-                    'email': 'bob@example.com',
-                    'phone': '(555) 333-4444'
-                },
-                'purchases': [
+            'user456': {
+                'transactions': [
                     {
-                        'transaction_id': 'TXN-003',
-                        'date': (datetime.utcnow() - timedelta(days=3)).isoformat(),
-                        'items': [
-                            {'type': 'orange', 'category': 'fruit', 'quantity': 5, 'price': 12.45, 'discount_percentage': 15}
+                        'id': 'txn_mock_004',
+                        'merchant': {'id': 12, 'name': 'Target'},
+                        'amount': -52.10,
+                        'date': (datetime.utcnow() - timedelta(days=2)).isoformat(),
+                        'description': 'Target - Grocery run',
+                        'skus': [
+                            {'name': 'Watermelon', 'category': 'produce', 'amount': -8.99},
+                            {'name': 'Pineapple', 'category': 'produce', 'amount': -5.99}
                         ]
                     }
                 ]
             }
         }
     
-    def get_customer(self, knot_customer_id):
-        """Return mock customer data"""
-        data = self.mock_data.get(knot_customer_id)
-        return data['customer'] if data else None
+    def sync_transactions(self, external_user_id, merchant_ids=None, limit=100, cursor=None):
+        """Return mock transaction data"""
+        data = self.mock_data.get(external_user_id)
+        if not data:
+            return {'transactions': [], 'count': 0, 'external_user_id': external_user_id}
+        
+        transactions = data.get('transactions', [])
+        return {
+            'transactions': transactions[:limit],
+            'count': len(transactions),
+            'external_user_id': external_user_id
+        }
     
-    def get_customer_purchases(self, knot_customer_id, start_date=None, end_date=None):
-        """Return mock purchase data"""
-        data = self.mock_data.get(knot_customer_id)
-        return data['purchases'] if data else []
+    def get_customer_transactions(self, external_user_id, limit=100):
+        """Return mock transactions"""
+        result = self.sync_transactions(external_user_id, limit=limit)
+        return result.get('transactions', [])
 
 
 def get_knot_client():
     """
     Factory function to get appropriate Knot API client
-    Uses real client if API key is available, otherwise returns mock client
+    Uses real client if credentials are configured, otherwise returns mock client
     """
-    api_key = os.getenv('KNOT_API_KEY')
+    # Check if custom credentials are provided
+    client_id = os.getenv('KNOT_CLIENT_ID')
+    secret = os.getenv('KNOT_SECRET')
+    use_real = os.getenv('KNOT_USE_REAL', 'false').lower() == 'true'
     
-    if api_key and api_key != 'your_knot_api_key_here':
-        print("🔗 Using real Knot API client")
-        return KnotAPIClient(api_key)
+    # If KNOT_USE_REAL is explicitly set to true, use real API with provided/default credentials
+    if use_real:
+        print("🔗 Using REAL Knot API client")
+        print(f"   Client ID: {client_id[:20] if client_id else 'dda0778d-9486-47f8'}...")
+        print(f"   Base URL: {os.getenv('KNOT_API_URL', 'https://development.knotapi.com')}")
+        return KnotAPIClient(client_id, secret)
     else:
-        print("🔗 Using mock Knot API client (set KNOT_API_KEY for real integration)")
+        print("🔗 Using MOCK Knot API client")
+        print("   Set KNOT_USE_REAL=true in .env to use real Knot API")
         return MockKnotAPIClient()
 
