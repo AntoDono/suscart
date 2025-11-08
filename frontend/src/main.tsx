@@ -52,11 +52,12 @@ function App() {
   if (currentPage === '#user') {
     return (
       <div style={{ 
-        width: '100vw', 
-        minHeight: '100vh', 
+        width: '100%', 
+        height: '100vh',
         backgroundColor: '#000000',
         overflowY: 'auto',
-        overflowX: 'hidden'
+        overflowX: 'hidden',
+        position: 'relative'
       }}>
         <CustomerPortal />
       </div>

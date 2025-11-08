@@ -4,17 +4,17 @@
   background: linear-gradient(135deg, #0a0f0a 0%, #1a2f1a 100%);
   color: #e0e0e0;
   font-family: 'Geist Mono', monospace;
-  overflow-y: auto;
   overflow-x: hidden;
+  /* Remove overflow-y from here - let parent handle scrolling */
 }
 
 .customer-portal.login-view {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   padding: 2rem;
   min-height: 100vh;
-  overflow-y: auto;
+  /* Let parent handle scrolling */
 }
 
 .login-container {
