@@ -13,9 +13,9 @@ class RipeDetector(nn.Module):
         super(RipeDetector, self).__init__()
         # Lighter model: reduced channels and FC size
         # First convolutional layer: 3 input channels (RGB), 8 output channels, 3x3 kernel
-        self.conv1 = nn.Conv2d(3, 8, kernel_size=3, padding=1)
+        self.conv1 = nn.Conv2d(3, 16, kernel_size=3, padding=1)
         # Second convolutional layer: 8 input channels, 16 output channels, 3x3 kernel
-        self.conv2 = nn.Conv2d(8, 16, kernel_size=3, padding=1)
+        self.conv2 = nn.Conv2d(16, 16, kernel_size=3, padding=1)
         # Max pooling layer
         self.pool = nn.MaxPool2d(2, 2)
         # Adaptive average pooling to reduce spatial dimensions before FC
@@ -145,7 +145,7 @@ def load_data(path="./setup/data/dataset"):
     
     return train_dataset, test_dataset
 
-def train_model(model, train_dataset, test_dataset, epochs=10, batch_size=64, learning_rate=0.001):
+def train_model(model, train_dataset, test_dataset, epochs=4, batch_size=128, learning_rate=0.001):
     """
     Train the RipeDetector model on the training dataset and evaluate on test dataset.
     
@@ -284,6 +284,14 @@ def inference(model, image_path, device=None):
     return probability  # Returns value between 0 (rotten) and 1 (fresh)
 
 if __name__ == "__main__":
-    train_dataset, test_dataset = load_data()
-    model = RipeDetector()
-    trained_model = train_model(model, train_dataset, test_dataset)
+    if os.path.exists("./model/ripe_detector.pth"):
+        model = load_model("./model/ripe_detector.pth")
+    else:
+        train_dataset, test_dataset = load_data()
+        model = RipeDetector()
+        trained_model = train_model(model, train_dataset, test_dataset)
+    
+    # Inference
+    image_path = "./setup/data/dataset/Test/fresh/00000000.jpg"
+    probability = inference(model, image_path)
+    print(f"Probability of being fresh: {probability}")
