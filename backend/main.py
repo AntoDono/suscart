@@ -812,7 +812,7 @@ def stream_video_websocket(ws):
                     
                     if time_since_last_detection >= detection_delta:
                         # Run detection
-                        result = detect(frame, allowed_classes=['*'], save=False, verbose=False)
+                        result = detect(frame, allowed_classes=['apple', 'banana', 'orange'], save=False, verbose=False)
                         detections = result['detections']
                         
                         # Process each detection and add ripe scores

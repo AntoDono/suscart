@@ -3,38 +3,43 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
+from torchvision.models import resnet18, ResNet18_Weights
 from PIL import Image
 from pathlib import Path
 from tqdm import tqdm
 import os
 
 class RipeDetector(nn.Module):
-    def __init__(self, dropout_rate=0.3):
+    def __init__(self, dropout_rate=0.5, pretrained=True):
         super(RipeDetector, self).__init__()
-        # Lighter model: reduced channels and FC size
-        # First convolutional layer: 3 input channels (RGB), 8 output channels, 3x3 kernel
-        self.conv1 = nn.Conv2d(3, 8, kernel_size=3, padding=1)
-        # Second convolutional layer: 8 input channels, 16 output channels, 3x3 kernel
-        self.conv2 = nn.Conv2d(8, 16, kernel_size=3, padding=1)
-        # Max pooling layer
-        self.pool = nn.MaxPool2d(2, 2)
-        # Adaptive average pooling to reduce spatial dimensions before FC
-        self.adaptive_pool = nn.AdaptiveAvgPool2d((7, 7))
-        # Dropout layer for regularization
-        self.dropout = nn.Dropout(dropout_rate)
-        # Fully connected layers - much smaller
-        self.fc1 = nn.Linear(16 * 7 * 7, 32)
-        self.fc2 = nn.Linear(32, 1)  # Binary classification: 1 output (fresh=1, rotten=0)
+        # Use pretrained ResNet18 as backbone
+        if pretrained:
+            self.backbone = resnet18(weights=ResNet18_Weights.IMAGENET1K_V1)
+        else:
+            self.backbone = resnet18(weights=None)
+        
+        # Replace the final fully connected layer
+        # ResNet18's fc layer expects 512 features
+        num_features = self.backbone.fc.in_features
+        
+        # Remove the original classifier
+        self.backbone.fc = nn.Identity()
+        
+        # Add custom classifier with dropout for regularization
+        self.classifier = nn.Sequential(
+            nn.Dropout(dropout_rate),
+            nn.Linear(num_features, 256),
+            nn.ReLU(),
+            nn.Dropout(dropout_rate),
+            nn.Linear(256, 1)  # Binary classification: 1 output (fresh=1, rotten=0)
+        )
 
     def forward(self, x):
-        x = self.pool(F.relu(self.conv1(x)))
-        x = self.pool(F.relu(self.conv2(x)))
-        x = self.adaptive_pool(x)  # Reduce to 7x7
-        x = x.view(-1, 16 * 7 * 7)  # Flatten the feature maps
-        x = F.relu(self.fc1(x))
-        x = self.dropout(x)  # Apply dropout for regularization
-        x = self.fc2(x)
-        return x
+        # Extract features using ResNet backbone
+        features = self.backbone(x)
+        # Apply classifier
+        output = self.classifier(features)
+        return output
 
 class RipeDataset(Dataset):
     """Custom dataset for ripe/fresh fruit classification"""
@@ -80,17 +85,21 @@ def load_data(path="./setup/data/dataset"):
     train_path = path / "Train"
     test_path = path / "Test"
     
-    # Define transforms
+    # Define transforms - using 224x224 for ImageNet pretrained models
+    # More aggressive augmentation for better generalization
     train_transform = transforms.Compose([
         transforms.Resize((256, 256)),
-        transforms.RandomHorizontalFlip(),
-        transforms.RandomRotation(10),
+        transforms.RandomCrop(224),  # Random crop for better generalization
+        transforms.RandomHorizontalFlip(p=0.5),
+        transforms.RandomRotation(15),
+        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
+        transforms.RandomAffine(degrees=0, translate=(0.1, 0.1)),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
     
     test_transform = transforms.Compose([
-        transforms.Resize((256, 256)),
+        transforms.Resize((224, 224)),  # Standard ImageNet size
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
@@ -145,7 +154,7 @@ def load_data(path="./setup/data/dataset"):
     
     return train_dataset, test_dataset
 
-def train_model(model, train_dataset, test_dataset, epochs=8, batch_size=64, learning_rate=0.001):
+def train_model(model, train_dataset, test_dataset, epochs=15, batch_size=32, learning_rate=0.0001):
     """
     Train the RipeDetector model on the training dataset and evaluate on test dataset.
     
@@ -171,7 +180,20 @@ def train_model(model, train_dataset, test_dataset, epochs=8, batch_size=64, lea
     
     # Loss function and optimizer
     criterion = nn.BCEWithLogitsLoss()  # Binary cross-entropy for binary classification
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    
+    # Use different learning rates for pretrained backbone vs new classifier
+    # Freeze backbone initially, then fine-tune with lower learning rate
+    backbone_params = list(model.backbone.parameters())
+    classifier_params = list(model.classifier.parameters())
+    
+    # Start with frozen backbone for a few epochs, then fine-tune
+    optimizer = torch.optim.Adam([
+        {'params': classifier_params, 'lr': learning_rate * 10},  # Higher LR for new layers
+        {'params': backbone_params, 'lr': learning_rate}  # Lower LR for pretrained layers
+    ])
+    
+    # Learning rate scheduler for better convergence
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.5)
     
     # Training loop
     for epoch in range(epochs):
@@ -231,9 +253,16 @@ def train_model(model, train_dataset, test_dataset, epochs=8, batch_size=64, lea
         test_acc = 100 * correct_test / total_test
         avg_test_loss = test_loss / len(test_loader)
         
+        # Update learning rate
+        scheduler.step()
+        
+        # Get learning rates for both parameter groups
+        lrs = scheduler.get_last_lr()
+        
         print(f'Epoch [{epoch+1}/{epochs}] Summary:')
         print(f'  Train Loss: {epoch_loss:.4f}, Train Accuracy: {epoch_acc:.2f}%')
         print(f'  Test Loss: {avg_test_loss:.4f}, Test Accuracy: {test_acc:.2f}%')
+        print(f'  Learning Rate (classifier): {lrs[0]:.6f}, (backbone): {lrs[1]:.6f}')
         print('-' * 60)
     
     # Create model directory if it doesn't exist
@@ -242,7 +271,7 @@ def train_model(model, train_dataset, test_dataset, epochs=8, batch_size=64, lea
     print('Training completed! Model saved to ./model/ripe_detector.pth')
     return model
 
-def load_model(path, device=None):
+def load_model(path, device=None, pretrained=True):
     """
     Load the model from the path.
     Handles loading models saved on CUDA when running on CPU.
@@ -250,11 +279,12 @@ def load_model(path, device=None):
     Args:
         path: Path to the model file
         device: Target device (None for auto-detect, 'cpu', 'cuda', or torch.device)
+        pretrained: Whether to use pretrained ResNet weights (default: True)
     
     Returns:
         RipeDetector: Loaded model
     """
-    model = RipeDetector()
+    model = RipeDetector(pretrained=pretrained)
     
     # Determine device for loading
     if device is None:
@@ -268,6 +298,7 @@ def load_model(path, device=None):
     # Map the loaded model to the target device
     # This handles cases where model was saved on CUDA but loading on CPU
     model.load_state_dict(torch.load(path, map_location=device))
+    model = model.to(device)
     return model
 
 def inference(model, image_path, device=None):
@@ -285,9 +316,9 @@ def inference(model, image_path, device=None):
     if device is None:
         device = next(model.parameters()).device
     
-    # Use the same preprocessing as test data
+    # Use the same preprocessing as test data (224x224 for ResNet)
     transform = transforms.Compose([
-        transforms.Resize((256, 256)),
+        transforms.Resize((224, 224)),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
@@ -305,16 +336,25 @@ def inference(model, image_path, device=None):
 
 if __name__ == "__main__":
     if os.path.exists("./model/ripe_detector.pth"):
+        print("Loading existing model...")
         model = load_model("./model/ripe_detector.pth")
+        print("Model loaded successfully!")
     else:
+        print("No existing model found. Training new ResNet-based model...")
         train_dataset, test_dataset = load_data()
-        model = RipeDetector()
-        trained_model = train_model(model, train_dataset, test_dataset)
+        model = RipeDetector(pretrained=True)  # Use pretrained ResNet18
+        print("Starting training with ResNet18 backbone...")
+        trained_model = train_model(model, train_dataset, test_dataset, epochs=15)
+        model = trained_model
     
     # Inference
     img1 = "./setup/data/dataset/Test/freshapples/a_f001.png"
     img2 = "./setup/data/dataset/Test/rottenapples/a_r001.png"
-    probability1 = inference(model, img1)
-    probability2 = inference(model, img2)
-    print(f"Probability of being fresh: {probability1}")
-    print(f"Probability of being rotten: {probability2}")
+    if os.path.exists(img1) and os.path.exists(img2):
+        probability1 = inference(model, img1)
+        probability2 = inference(model, img2)
+        print(f"\nTest Results:")
+        print(f"Fresh apple probability: {probability1:.4f} ({'FRESH' if probability1 > 0.5 else 'ROTTEN'})")
+        print(f"Rotten apple probability: {probability2:.4f} ({'FRESH' if probability2 > 0.5 else 'ROTTEN'})")
+    else:
+        print("Test images not found. Skipping inference test.")

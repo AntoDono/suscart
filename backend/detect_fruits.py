@@ -88,12 +88,13 @@ def detect(image, allowed_classes=['*'], save=True, verbose=True):
 def get_ripe_transform():
     """
     Get the preprocessing transform for ripe detection model.
+    Uses 224x224 for ResNet compatibility.
     
     Returns:
         transforms.Compose: Preprocessing transform pipeline
     """
     return transforms.Compose([
-        transforms.Resize((256, 256)),
+        transforms.Resize((224, 224)),  # Standard ImageNet size for ResNet
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
