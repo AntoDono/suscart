@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { AwesomeButton } from 'react-awesome-button';
 import 'react-awesome-button/dist/styles.css';
 import GradientText from './GradientText';
+import LiquidChrome from './LiquidChrome';
 import './CustomerLogin.css';
 
 interface TerminalLine {
@@ -151,6 +152,40 @@ const Terminal = () => {
 };
 
 const CustomerLogin = () => {
+  const handleLogin = () => {
+    // Create fade to black overlay
+    const fadeOverlay = document.createElement('div');
+    fadeOverlay.style.position = 'fixed';
+    fadeOverlay.style.top = '0';
+    fadeOverlay.style.left = '0';
+    fadeOverlay.style.width = '100vw';
+    fadeOverlay.style.height = '100vh';
+    fadeOverlay.style.backgroundColor = '#000000';
+    fadeOverlay.style.opacity = '0';
+    fadeOverlay.style.transition = 'opacity 1s ease-in-out';
+    fadeOverlay.style.zIndex = '9999';
+    fadeOverlay.style.pointerEvents = 'none';
+
+    document.body.appendChild(fadeOverlay);
+
+    // Trigger fade
+    setTimeout(() => {
+      fadeOverlay.style.opacity = '1';
+    }, 10);
+
+    // Navigate after fade completes
+    setTimeout(() => {
+      window.location.hash = '#user';
+      // Remove overlay after navigation
+      setTimeout(() => {
+        fadeOverlay.style.opacity = '0';
+        setTimeout(() => {
+          document.body.removeChild(fadeOverlay);
+        }, 1000);
+      }, 100);
+    }, 1000);
+  };
+
   return (
     <div className="customer-login">
       <h2 className="customer-title">
@@ -165,7 +200,14 @@ const CustomerLogin = () => {
 
       <div className="camera-feed">
         <div className="camera-feed-content">
-          {/* Camera feed will be integrated here */}
+          <LiquidChrome
+            baseColor={[0.08, 0.18, 0.14]}
+            speed={0.5}
+            amplitude={0.4}
+            frequencyX={3}
+            frequencyY={3}
+            interactive={true}
+          />
         </div>
       </div>
 
@@ -178,7 +220,7 @@ const CustomerLogin = () => {
       <Terminal />
 
       <div className="login-button-wrapper">
-        <AwesomeButton type="primary" onPress={() => window.location.hash = '#user'}>
+        <AwesomeButton type="primary" onPress={handleLogin}>
           <GradientText
             colors={['#7ECA9C', '#AAF0D1', '#CCFFBD', '#AAF0D1', '#7ECA9C']}
             animationSpeed={4}

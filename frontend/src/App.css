@@ -5,15 +5,37 @@
 }
 
 html,
-body,
-#root {
+body {
   width: 100%;
   height: 100%;
   margin: 0;
   padding: 0;
   background: #000000;
   color: #ffffff;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+#root {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+  background: #000000;
+  color: #ffffff;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+#root::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
 }
 
 /* Allow scrolling on user page */
