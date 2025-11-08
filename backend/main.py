@@ -4,6 +4,8 @@ from flask_sock import Sock
 from dotenv import load_dotenv
 import json
 import os
+import cv2
+import numpy as np
 from datetime import datetime
 
 # Load environment variables
@@ -13,11 +15,19 @@ load_dotenv()
 from models import db, Store, FruitInventory, FreshnessStatus, Customer, PurchaseHistory, Recommendation, WasteLog
 from database import init_db, seed_sample_data
 from knot_integration import get_knot_client
+from detect_fruits import (
+    detect, 
+    load_ripe_detection_model, 
+    crop_bounding_box, 
+    get_ripe_percentage,
+    get_best_camera_index
+)
 
 # Initialize Flask app
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 sock = Sock(app)  # Initialize WebSocket support
+PORT = os.getenv('PORT', 3000)
 
 # Database configuration
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///suscart.db')
@@ -32,6 +42,17 @@ knot_client = get_knot_client()
 # Store active WebSocket connections for real-time updates
 admin_connections = set()
 customer_connections = {}  # {customer_id: ws}
+
+# Load ripe detection model globally (once at startup)
+ripe_model = None
+ripe_device = None
+ripe_transform = None
+try:
+    ripe_model, ripe_device, ripe_transform = load_ripe_detection_model("./model/ripe_detector.pth")
+    print("✅ Ripe detection model loaded successfully")
+except Exception as e:
+    print(f"⚠️ Warning: Could not load ripe detection model: {e}")
+    print("   Video stream will work but without ripe detection")
 
 # ============ Utility Functions ============
 
@@ -653,6 +674,200 @@ def customer_websocket(ws, customer_id):
             del customer_connections[customer_id]
 
 
+@sock.route('/ws/stream_video')
+def stream_video_websocket(ws):
+    """WebSocket for video stream - backend activates camera and streams frames with detections"""
+    import threading
+    import time
+    
+    camera = None
+    streaming = False
+    
+    try:
+        # Send welcome message
+        ws.send(json.dumps({
+            'type': 'connected',
+            'message': 'Connected to video stream endpoint',
+            'ripe_model_loaded': ripe_model is not None,
+            'timestamp': datetime.utcnow().isoformat()
+        }))
+        
+        def process_frame():
+            """Process frames from camera and send to client"""
+            nonlocal streaming, camera
+            
+            # FPS calculation variables
+            frame_times = []
+            window_size = 30
+            last_time = time.time()
+            
+            while streaming:
+                try:
+                    # Check if camera is still available
+                    if camera is None or not camera.isOpened():
+                        break
+                    
+                    frame_start_time = time.time()
+                    ret, frame = camera.read()
+                    if not ret:
+                        ws.send(json.dumps({
+                            'type': 'error',
+                            'message': 'Failed to capture frame'
+                        }))
+                        break
+                    
+                    # Run detection
+                    result = detect(frame, allowed_classes=['*'], save=False, verbose=False)
+                    detections = result['detections']
+                    
+                    # Process each detection and add ripe scores
+                    processed_detections = []
+                    
+                    for detection in detections:
+                        bbox = detection['bbox']
+                        class_name = detection['class']
+                        confidence = detection['confidence']
+                        
+                        # Get ripe percentage if model is loaded
+                        ripe_score = None
+                        if ripe_model is not None:
+                            cropped = crop_bounding_box(frame, bbox)
+                            if cropped is not None:
+                                ripe_score = get_ripe_percentage(cropped, ripe_model, ripe_device, ripe_transform)
+                        
+                        processed_detections.append({
+                            'bbox': bbox,  # [x1, y1, x2, y2]
+                            'class': class_name,
+                            'confidence': float(confidence),
+                            'ripe_score': float(ripe_score) if ripe_score is not None else None
+                        })
+                    
+                    # Calculate FPS
+                    current_time = time.time()
+                    frame_time = current_time - last_time
+                    last_time = current_time
+                    
+                    frame_times.append(frame_time)
+                    if len(frame_times) > window_size:
+                        frame_times.pop(0)
+                    
+                    if len(frame_times) > 0:
+                        avg_frame_time = sum(frame_times) / len(frame_times)
+                        fps = 1.0 / avg_frame_time if avg_frame_time > 0 else 0.0
+                    else:
+                        fps = 0.0
+                    
+                    # Encode original frame (non-annotated) to JPEG
+                    _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+                    frame_bytes = buffer.tobytes()
+                    
+                    # Send metadata first (detections, fps, frame size)
+                    ws.send(json.dumps({
+                        'type': 'frame_meta',
+                        'detections': processed_detections,
+                        'fps': round(fps, 2),
+                        'frame_size': len(frame_bytes),
+                        'timestamp': datetime.utcnow().isoformat()
+                    }))
+                    
+                    # Send binary frame data (much more efficient than base64)
+                    ws.send(frame_bytes)
+                    
+                    # Adaptive frame rate control - only sleep if processing was fast
+                    # Target ~10 FPS, but don't limit if processing is already slow
+                    elapsed = time.time() - frame_start_time
+                    target_frame_time = 0.05  # 15 FPS
+                    if elapsed < target_frame_time:
+                        time.sleep(target_frame_time - elapsed)
+                    
+                except Exception as e:
+                    if streaming:  # Only send error if still streaming
+                        ws.send(json.dumps({
+                            'type': 'error',
+                            'message': f'Error processing frame: {str(e)}'
+                        }))
+                    break
+        
+        # Listen for commands from client
+        while True:
+            data = ws.receive()
+            if not data:
+                continue
+            
+            try:
+                message = json.loads(data)
+                command = message.get('command')
+                
+                if command == 'start':
+                    if camera is not None:
+                        ws.send(json.dumps({
+                            'type': 'error',
+                            'message': 'Camera already started'
+                        }))
+                        continue
+                    
+                    # Open camera - use highest available camera index (prefers USB cameras)
+                    camera_index = get_best_camera_index()
+                    camera = cv2.VideoCapture(camera_index)
+                    if not camera.isOpened():
+                        ws.send(json.dumps({
+                            'type': 'error',
+                            'message': 'Failed to open camera'
+                        }))
+                        continue
+                    
+                    streaming = True
+                    ws.send(json.dumps({
+                        'type': 'started',
+                        'message': 'Camera started, streaming frames'
+                    }))
+                    
+                    # Start processing frames in a separate thread
+                    thread = threading.Thread(target=process_frame, daemon=True)
+                    thread.start()
+                    
+                elif command == 'stop':
+                    streaming = False
+                    # Give the thread a moment to finish its current iteration
+                    time.sleep(0.1)
+                    if camera is not None:
+                        try:
+                            camera.release()
+                        except Exception:
+                            pass
+                        camera = None
+                    ws.send(json.dumps({
+                        'type': 'stopped',
+                        'message': 'Camera stopped'
+                    }))
+            
+            except json.JSONDecodeError:
+                ws.send(json.dumps({
+                    'type': 'error',
+                    'message': 'Invalid JSON format'
+                }))
+            except Exception as e:
+                ws.send(json.dumps({
+                    'type': 'error',
+                    'message': f'Unexpected error: {str(e)}'
+                }))
+    
+    except Exception as e:
+        print(f"Video stream WebSocket error: {e}")
+    finally:
+        # Properly cleanup: stop streaming first, wait for thread, then release camera
+        streaming = False
+        # Give the processing thread time to exit its loop
+        time.sleep(0.2)
+        if camera is not None:
+            try:
+                camera.release()
+            except Exception:
+                pass
+            camera = None
+        print("Video stream WebSocket disconnected")
+
+
 # ============ Error Handlers ============
 
 @app.errorhandler(404)
@@ -710,13 +925,13 @@ if __name__ == '__main__':
     print("\n" + "="*50)
     print("🛒 SusCart Backend Server Starting...")
     print("="*50)
-    print("📍 Server: http://localhost:5000")
-    print("📚 API Routes: http://localhost:5000/routes")
-    print("🏥 Health Check: http://localhost:5000/health")
+    print(f"📍 Server: http://localhost:{PORT}")
+    print(f"📚 API Routes: http://localhost:{PORT}/routes")
+    print(f"🏥 Health Check: http://localhost:{PORT}/health")
     print("="*50 + "\n")
     
     app.run(
         host='0.0.0.0',
-        port=5000,
+        port=PORT,
         debug=True
     )

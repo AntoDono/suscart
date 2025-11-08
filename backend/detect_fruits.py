@@ -3,6 +3,8 @@ import cv2
 import numpy as np
 import torch
 import time
+import os
+import sys
 from PIL import Image
 from torchvision import transforms
 from ripe_detector import load_model
@@ -305,6 +307,48 @@ def draw_fps(frame, fps, position=(10, 30), color=(0, 255, 0)):
     )
 
 
+def get_best_camera_index():
+    """
+    Find the best available camera index.
+    Uses the lowest index (typically index 0, built-in camera).
+    
+    Returns:
+        int: Camera index to use, or 0 if no cameras found
+    """
+    available_cameras = []
+    
+    # Suppress OpenCV warnings while detecting cameras
+    from contextlib import redirect_stderr, redirect_stdout
+    
+    with open(os.devnull, 'w') as devnull:
+        with redirect_stderr(devnull), redirect_stdout(devnull):
+            for i in range(11):  # Check indices 0-10
+                try:
+                    cap = cv2.VideoCapture(i)
+                    if cap.isOpened():
+                        # Try to read a frame to confirm it's working
+                        ret, frame = cap.read()
+                        if ret and frame is not None:
+                            available_cameras.append(i)
+                        cap.release()
+                except Exception:
+                    # Silently ignore any errors
+                    pass
+    
+    if not available_cameras:
+        print("Warning: No cameras found, defaulting to index 0")
+        return 0
+    
+    # Return the lowest index (typically built-in camera)
+    best_index = min(available_cameras)
+    if len(available_cameras) > 1:
+        print(f"Found {len(available_cameras)} camera(s). Using camera index {best_index} (lowest index).")
+    else:
+        print(f"Using camera index {best_index}.")
+    
+    return best_index
+
+
 class FPSCounter:
     """
     Simple FPS counter that calculates average FPS over a window of frames.
@@ -402,8 +446,9 @@ def run_webcam_detection(allowed_classes=['*'], ripe_model_path="./model/ripe_de
         print("Continuing without ripe detection...")
         ripe_model, device, ripe_transform = None, None, None
     
-    # Open webcam
-    cap = cv2.VideoCapture(0)
+    # Open webcam - use highest available camera index (prefers USB cameras)
+    camera_index = get_best_camera_index()
+    cap = cv2.VideoCapture(camera_index)
     
     if not cap.isOpened():
         print("Error: Could not open webcam")

@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Stream Test Client</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a1a;
+            color: #fff;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: #fff;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .video-section {
+            background: #2a2a2a;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s;
+            font-weight: 500;
+        }
+        
+        button.start {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        button.start:hover {
+            background: #45a049;
+        }
+        
+        button.stop {
+            background: #f44336;
+            color: white;
+        }
+        
+        button.stop:hover {
+            background: #da190b;
+        }
+        
+        button:disabled {
+            background: #555;
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+        
+        .status {
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 13px;
+            margin-bottom: 10px;
+            display: inline-block;
+        }
+        
+        .status.connected {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .status.disconnected {
+            background: #f44336;
+            color: white;
+        }
+        
+        .status.streaming {
+            background: #2196F3;
+            color: white;
+        }
+        
+        .video-container {
+            position: relative;
+            display: inline-block;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 15px;
+        }
+        
+        #videoCanvas {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+        
+        .info-panel {
+            background: #333;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+        
+        .info-panel h3 {
+            margin-bottom: 10px;
+            color: #4CAF50;
+        }
+        
+        .detection-item {
+            background: #444;
+            padding: 8px;
+            margin: 5px 0;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+        
+        .stats {
+            display: flex;
+            gap: 20px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .stat {
+            background: #444;
+            padding: 10px 15px;
+            border-radius: 4px;
+            min-width: 120px;
+        }
+        
+        .stat-label {
+            font-size: 11px;
+            color: #aaa;
+            margin-bottom: 5px;
+        }
+        
+        .stat-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎥 Video Stream Test Client</h1>
+        
+        <div class="video-section">
+            <div>
+                <span id="status" class="status disconnected">Disconnected</span>
+                <span id="streamStatus" class="status disconnected" style="margin-left: 10px;">Not Streaming</span>
+            </div>
+            
+            <div class="controls">
+                <button class="start" onclick="connectWebSocket()">Connect</button>
+                <button class="stop" onclick="disconnectWebSocket()" disabled id="disconnectBtn">Disconnect</button>
+                <button class="start" onclick="startStream()" disabled id="startBtn">Start Stream</button>
+                <button class="stop" onclick="stopStream()" disabled id="stopBtn">Stop Stream</button>
+            </div>
+            
+            <div class="video-container">
+                <canvas id="videoCanvas"></canvas>
+            </div>
+            
+            <div class="info-panel">
+                <h3>Detection Results</h3>
+                <div id="detections"></div>
+                <div class="stats">
+                    <div class="stat">
+                        <div class="stat-label">FPS</div>
+                        <div class="stat-value" id="fps">0</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-label">Detections</div>
+                        <div class="stat-value" id="detectionCount">0</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-label">Frames Received</div>
+                        <div class="stat-value" id="framesReceived">0</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let canvas = null;
+        let ctx = null;
+        let isStreaming = false;
+        let framesReceived = 0;
+        let pendingFrameMeta = null;
+        
+        // Initialize canvas
+        canvas = document.getElementById('videoCanvas');
+        ctx = canvas.getContext('2d');
+        
+        function connectWebSocket() {
+            ws = new WebSocket('ws://localhost:3000/ws/stream_video');
+            ws.binaryType = 'arraybuffer'; // Handle binary data as ArrayBuffer
+            
+            ws.onopen = () => {
+                document.getElementById('status').className = 'status connected';
+                document.getElementById('status').textContent = 'Connected';
+                document.getElementById('disconnectBtn').disabled = false;
+                document.getElementById('startBtn').disabled = false;
+            };
+            
+            ws.onmessage = (event) => {
+                // Check if message is binary (ArrayBuffer) or text (JSON)
+                if (event.data instanceof ArrayBuffer) {
+                    // Binary frame data
+                    handleBinaryFrame(event.data);
+                } else {
+                    // Text/JSON message
+                    try {
+                        const data = JSON.parse(event.data);
+                        handleTextMessage(data);
+                    } catch (e) {
+                        console.error('Failed to parse JSON:', e);
+                    }
+                }
+            };
+            
+            function handleTextMessage(data) {
+                if (data.type === 'connected') {
+                    console.log('Connected:', data.message);
+                    console.log('Ripe model loaded:', data.ripe_model_loaded);
+                } else if (data.type === 'started') {
+                    document.getElementById('streamStatus').className = 'status streaming';
+                    document.getElementById('streamStatus').textContent = 'Streaming';
+                    document.getElementById('startBtn').disabled = true;
+                    document.getElementById('stopBtn').disabled = false;
+                    console.log('Camera started:', data.message);
+                } else if (data.type === 'stopped') {
+                    document.getElementById('streamStatus').className = 'status disconnected';
+                    document.getElementById('streamStatus').textContent = 'Not Streaming';
+                    document.getElementById('startBtn').disabled = false;
+                    document.getElementById('stopBtn').disabled = true;
+                    isStreaming = false;
+                    console.log('Camera stopped:', data.message);
+                } else if (data.type === 'frame_meta') {
+                    // Store metadata, will be used when binary frame arrives
+                    pendingFrameMeta = data;
+                } else if (data.type === 'error') {
+                    console.error('Error:', data.message);
+                    alert('Error: ' + data.message);
+                }
+            }
+            
+            function handleBinaryFrame(arrayBuffer) {
+                // Convert binary data to blob URL
+                const blob = new Blob([arrayBuffer], { type: 'image/jpeg' });
+                const imageUrl = URL.createObjectURL(blob);
+                
+                // Use metadata if available
+                if (pendingFrameMeta) {
+                    displayFrame(imageUrl, pendingFrameMeta.detections, pendingFrameMeta.fps);
+                    updateDetectionCount(pendingFrameMeta.detections.length);
+                    
+                    // Update FPS from backend
+                    if (pendingFrameMeta.fps !== undefined) {
+                        document.getElementById('fps').textContent = pendingFrameMeta.fps.toFixed(1);
+                    }
+                    
+                    pendingFrameMeta = null;
+                } else {
+                    // Fallback: display frame without annotations
+                    displayFrame(imageUrl, [], 0);
+                }
+                
+                // Clean up object URL after a short delay
+                setTimeout(() => URL.revokeObjectURL(imageUrl), 100);
+                
+                // Update frame count
+                framesReceived++;
+                document.getElementById('framesReceived').textContent = framesReceived;
+            }
+            
+            ws.onclose = () => {
+                document.getElementById('status').className = 'status disconnected';
+                document.getElementById('status').textContent = 'Disconnected';
+                document.getElementById('disconnectBtn').disabled = true;
+                document.getElementById('startBtn').disabled = true;
+                stopStream();
+            };
+            
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+        }
+        
+        function disconnectWebSocket() {
+            stopStream();
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+        }
+        
+        function startStream() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                alert('Please connect to WebSocket first');
+                return;
+            }
+            
+            // Send start command to backend
+            ws.send(JSON.stringify({ command: 'start' }));
+            isStreaming = true;
+        }
+        
+        function stopStream() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                // Send stop command to backend
+                ws.send(JSON.stringify({ command: 'stop' }));
+            }
+            
+            isStreaming = false;
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            document.getElementById('detections').innerHTML = '';
+            document.getElementById('detectionCount').textContent = '0';
+        }
+        
+        function displayFrame(imageUrl, detections, fps) {
+            // Create image from blob URL
+            const img = new Image();
+            img.onload = () => {
+                // Set canvas size to match image
+                canvas.width = img.width;
+                canvas.height = img.height;
+                
+                // Draw the original frame
+                ctx.drawImage(img, 0, 0);
+                
+                // Draw FPS
+                if (fps !== undefined) {
+                    ctx.fillStyle = '#000';
+                    ctx.fillRect(0, 0, 100, 30);
+                    ctx.fillStyle = '#4CAF50';
+                    ctx.font = 'bold 16px Arial';
+                    ctx.fillText(`FPS: ${fps.toFixed(1)}`, 5, 20);
+                }
+                
+                // Draw bounding boxes and labels for each detection
+                detections.forEach(detection => {
+                    const bbox = detection.bbox;
+                    const x1 = bbox[0];
+                    const y1 = bbox[1];
+                    const x2 = bbox[2];
+                    const y2 = bbox[3];
+                    
+                    // Draw bounding box
+                    ctx.strokeStyle = '#4CAF50';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+                    
+                    // Create label text
+                    let label = `${detection.class} (${(detection.confidence * 100).toFixed(1)}%)`;
+                    if (detection.ripe_score !== null && detection.ripe_score !== undefined) {
+                        label += ` | Ripe: ${detection.ripe_score.toFixed(1)}%`;
+                    }
+                    
+                    // Draw label background
+                    ctx.font = '14px Arial';
+                    const textMetrics = ctx.measureText(label);
+                    const textWidth = textMetrics.width;
+                    const textHeight = 20;
+                    
+                    ctx.fillStyle = '#4CAF50';
+                    ctx.fillRect(x1, y1 - textHeight - 4, textWidth + 8, textHeight);
+                    
+                    // Draw label text
+                    ctx.fillStyle = '#fff';
+                    ctx.fillText(label, x1 + 4, y1 - 6);
+                });
+                
+                // Update detections list
+                updateDetectionsList(detections);
+            };
+            img.src = imageUrl;
+        }
+        
+        function updateDetectionsList(detections) {
+            const detectionsDiv = document.getElementById('detections');
+            detectionsDiv.innerHTML = '';
+            
+            if (detections.length === 0) {
+                detectionsDiv.innerHTML = '<div class="detection-item">No detections</div>';
+                return;
+            }
+            
+            // Add each detection to the list
+            detections.forEach(detection => {
+                const detectionItem = document.createElement('div');
+                detectionItem.className = 'detection-item';
+                detectionItem.innerHTML = `
+                    <strong>${detection.class}</strong> | 
+                    Confidence: ${(detection.confidence * 100).toFixed(1)}% | 
+                    ${detection.ripe_score !== null && detection.ripe_score !== undefined 
+                        ? `Ripe Score: ${detection.ripe_score.toFixed(1)}%` 
+                        : 'Ripe Score: N/A'}
+                `;
+                detectionsDiv.appendChild(detectionItem);
+            });
+        }
+        
+        function updateDetectionCount(count) {
+            document.getElementById('detectionCount').textContent = count;
+        }
+        
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            stopStream();
+            disconnectWebSocket();
+        });
+    </script>
+</body>
+</html>
+
