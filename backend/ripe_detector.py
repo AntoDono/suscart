@@ -292,8 +292,8 @@ if __name__ == "__main__":
         trained_model = train_model(model, train_dataset, test_dataset)
     
     # Inference
-    img1 = "./setup/data/dataset/Test/freshapples/a_f001.jpg"
-    img2 = "./setup/data/dataset/Test/rottenapples/a_r001.jpg"
+    img1 = "./setup/data/dataset/Test/freshapples/a_f001.png"
+    img2 = "./setup/data/dataset/Test/rottenapples/a_r001.png"
     probability1 = inference(model, img1)
     probability2 = inference(model, img2)
     print(f"Probability of being fresh: {probability1}")
