@@ -2,8 +2,12 @@ import { useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 
+interface CubeMesh extends THREE.Mesh {
+  center: THREE.Vector3;
+}
+
 const SolverOrb = () => {
-  const mountRef = useRef(null);
+  const mountRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!mountRef.current) return;
@@ -59,7 +63,7 @@ const SolverOrb = () => {
       depthWrite: false,
     });
 
-    const cubes = [];
+    const cubes: CubeMesh[] = [];
 
     // Create 3x3x3 Rubik's cube
     for (let x = -1; x <= 1; x++) {
@@ -68,7 +72,7 @@ const SolverOrb = () => {
           const cube = new THREE.Mesh(
             new RoundedBoxGeometry(0.95, 0.95, 0.95, 2, 0.05),
             shaderMaterial.clone()
-          );
+          ) as unknown as CubeMesh;
           cube.center = new THREE.Vector3(x, y, z);
           cube.geometry.translate(x, y, z);
           cubes.push(cube);
@@ -77,8 +81,8 @@ const SolverOrb = () => {
       }
     }
 
-    let animationFrameId;
-    let rotationTimeout;
+    let animationFrameId: number;
+    let rotationTimeout: ReturnType<typeof setTimeout>;
     let isRotating = false;
 
     const rotations = [
@@ -99,21 +103,23 @@ const SolverOrb = () => {
     let rot = { k: 0, oldK: 0 };
     const e = new THREE.Euler();
 
-    function rotate(order, axis, sign, dir) {
+    function rotate(order: THREE.EulerOrder, axis: 'x' | 'y' | 'z', sign: number, dir: number) {
       for (let cube of cubes) {
         if (Math.abs(cube.center[axis] - sign) < 0.1) {
           cube.rotation.reorder(order);
           cube.rotation[axis] += dir * Math.PI / 2 * (rot.k - rot.oldK);
 
           e.set(0, 0, 0, order);
-          e[axis] = dir * Math.PI / 2 * (rot.k - rot.oldK);
+          if (axis === 'x') e.x = dir * Math.PI / 2 * (rot.k - rot.oldK);
+          if (axis === 'y') e.y = dir * Math.PI / 2 * (rot.k - rot.oldK);
+          if (axis === 'z') e.z = dir * Math.PI / 2 * (rot.k - rot.oldK);
           cube.center.applyEuler(e);
         }
       }
       rot.oldK = rot.k;
     }
 
-    function animateRotation(startTime, duration, rotationFn) {
+    function animateRotation(startTime: number, duration: number, rotationFn: () => void) {
       const currentTime = performance.now();
       const elapsed = currentTime - startTime;
       const progress = Math.min(elapsed / duration, 1);
@@ -137,7 +143,7 @@ const SolverOrb = () => {
       }
     }
 
-    let currentRotationFn = null;
+    let currentRotationFn: (() => void) | null = null;
     let rotationStartTime = 0;
     const rotationDuration = 700;
     const delayBetweenRotations = 500;
@@ -197,7 +203,11 @@ const SolverOrb = () => {
       scene.remove(group);
       cubes.forEach(cube => {
         cube.geometry.dispose();
-        cube.material.dispose();
+        if (Array.isArray(cube.material)) {
+          cube.material.forEach(m => m.dispose());
+        } else {
+          cube.material.dispose();
+        }
       });
       renderer.dispose();
     };

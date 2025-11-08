@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { SimplexNoise } from 'three/examples/jsm/math/SimplexNoise.js';
 
 const LoaderOrb = () => {
-  const mountRef = useRef(null);
+  const mountRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!mountRef.current) return;
@@ -59,7 +59,7 @@ const LoaderOrb = () => {
       depthWrite: false,
     };
 
-    const tori = [];
+    const tori: THREE.Mesh[] = [];
     const numRings = 5;
     const baseRadius = 1.2;
     const radiusStep = 0.3;
@@ -101,15 +101,15 @@ const LoaderOrb = () => {
     }
 
     const noise = new SimplexNoise();
-    let animationFrameId;
+    let animationFrameId: number;
 
-    const modulate = (val, minVal, maxVal, outMin, outMax) => {
+    const modulate = (val: number, minVal: number, maxVal: number, outMin: number, outMax: number) => {
       const fr = (val - minVal) / (maxVal - minVal);
       const delta = outMax - outMin;
       return outMin + fr * delta;
     };
 
-    const distortMesh = (mesh, bassFr, treFr) => {
+    const distortMesh = (mesh: THREE.Mesh, bassFr: number, treFr: number) => {
       const vertices = mesh.geometry.getAttribute('position');
       const originalPositions = mesh.geometry.userData.originalPositions;
       const time = window.performance.now();
@@ -190,7 +190,11 @@ const LoaderOrb = () => {
       scene.remove(group);
       tori.forEach(torus => {
         torus.geometry.dispose();
-        torus.material.dispose();
+        if (Array.isArray(torus.material)) {
+          torus.material.forEach(m => m.dispose());
+        } else {
+          torus.material.dispose();
+        }
       });
       renderer.dispose();
     };
