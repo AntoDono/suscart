@@ -31,9 +31,9 @@ except ImportError:
     from knot_integration import get_knot_client
 from detect_fruits import (
     detect, 
-    load_ripe_detection_model, 
+    load_fresh_detection_model, 
     crop_bounding_box, 
-    get_ripe_percentage,
+    get_freshness_score,
     get_best_camera_index
 )
 
@@ -78,16 +78,24 @@ knot_client = get_knot_client()
 # Import them for backward compatibility
 from utils.helpers import admin_connections, customer_connections
 
-# Load ripe detection model globally (once at startup)
-ripe_model = None
-ripe_device = None
-ripe_transform = None
+# Load fresh detection model globally (once at startup)
+fresh_model = None
+fresh_device = None
+fresh_transform = None
 try:
-    ripe_model, ripe_device, ripe_transform = load_ripe_detection_model("./model/ripe_detector.pth")
-    print("✅ Ripe detection model loaded successfully")
+    # Try loading fresh_detector.pth first, fallback to ripe_detector.pth for backward compatibility
+    model_path = "./model/fresh_detector.pth"
+    if not os.path.exists(model_path) and os.path.exists("./model/ripe_detector.pth"):
+        print("⚠️ fresh_detector.pth not found, trying ripe_detector.pth (old model)")
+        model_path = "./model/ripe_detector.pth"
+    
+    fresh_model, fresh_device, fresh_transform = load_fresh_detection_model(model_path)
+    print("✅ Fresh detection model loaded successfully")
 except Exception as e:
-    print(f"⚠️ Warning: Could not load ripe detection model: {e}")
-    print("   Video stream will work but without ripe detection")
+    print(f"⚠️ Warning: Could not load fresh detection model: {e}")
+    print("   Video stream will work but without fresh detection")
+    import traceback
+    traceback.print_exc()
 
 # ============ Import Utility Functions ============
 from utils.helpers import (
@@ -115,18 +123,18 @@ register_inventory_routes(app)
 
 # ============ Camera-Specific Helper Functions ============
 
-def update_freshness_from_camera(inventory_id, ripe_score, confidence):
+def update_freshness_from_camera(inventory_id, freshness_score, confidence):
     """
     Update freshness status from camera detection (async)
-    Called automatically when camera detects ripeness.
+    Called automatically when camera detects freshness.
     
-    Note: This function is specific to camera detection and converts ripe_score (0-100)
+    Note: This function is specific to camera detection and converts freshness_score (0-100)
     to freshness_score (0-1.0) before calling update_freshness_for_item.
     """
     try:
         with app.app_context():
-            # Convert ripe_score from 0-100 scale to 0-1.0 scale
-            freshness_score = ripe_score / 100.0 if ripe_score is not None else None
+            # Convert freshness_score from 0-100 scale to 0-1.0 scale
+            freshness_score = freshness_score / 100.0 if freshness_score is not None else None
             
             if freshness_score is not None:
                 # Use the helper function from utils.helpers
@@ -136,8 +144,8 @@ def update_freshness_from_camera(inventory_id, ripe_score, confidence):
                 freshness = FreshnessStatus.query.filter_by(inventory_id=inventory_id).first()
                 if freshness:
                     freshness.confidence_level = confidence
-                    # Predict expiry based on ripeness (simple heuristic)
-                    # Higher ripeness = closer to expiry
+                    # Predict expiry based on freshness (simple heuristic)
+                    # Lower freshness = closer to expiry
                     days_until_expiry = int(freshness_score * 10)  # 0-10 days
                     freshness.predicted_expiry_date = datetime.utcnow() + timedelta(days=days_until_expiry)
                     freshness.last_checked = datetime.utcnow()
@@ -754,7 +762,7 @@ def stream_video_websocket(ws):
         ws.send(json.dumps({
             'type': 'connected',
             'message': 'Connected to video stream endpoint',
-            'ripe_model_loaded': ripe_model is not None,
+            'fresh_model_loaded': fresh_model is not None,
             'timestamp': datetime.utcnow().isoformat()
         }))
         
@@ -815,7 +823,7 @@ def stream_video_websocket(ws):
                         result = detect(frame, allowed_classes=['apple', 'banana', 'orange'], save=False, verbose=False)
                         detections = result['detections']
                         
-                        # Process each detection and add ripe scores
+                        # Process each detection and add freshness scores
                         processed_detections = []
                         
                         for detection in detections:
@@ -826,58 +834,64 @@ def stream_video_websocket(ws):
                             class_name = detection['class']
                             confidence = detection['confidence']
                             
-                            # Get ripe percentage if model is loaded
-                            ripe_score = None
-                            if ripe_model is not None:
+                            # Get freshness score if model is loaded
+                            freshness_score = None
+                            if fresh_model is not None:
                                 cropped = crop_bounding_box(frame, bbox)
                                 if cropped is not None:
-                                    ripe_score = get_ripe_percentage(cropped, ripe_model, ripe_device, ripe_transform)
+                                    freshness_score = get_freshness_score(cropped, fresh_model, fresh_device, fresh_transform)
                                     
                                     # 🎯 INTEGRATION: Update freshness in database automatically!
                                     # Check if this fruit is in our inventory
-                                    if class_name in inventory_cache and ripe_score is not None:
+                                    if class_name in inventory_cache and freshness_score is not None:
                                         item_id, _ = inventory_cache[class_name]
                                         # Update freshness asynchronously to not block video stream
                                         threading.Thread(
                                             target=update_freshness_from_camera,
-                                            args=(item_id, ripe_score, confidence),
+                                            args=(item_id, freshness_score, confidence),
                                             daemon=True
                                         ).start()
+                                else:
+                                    print(f"⚠️ Could not crop bounding box for {class_name}")
+                            else:
+                                if not hasattr(stream_video_websocket, '_fresh_model_warning_shown'):
+                                    print(f"⚠️ Fresh model not loaded - freshness scores will be None")
+                                    stream_video_websocket._fresh_model_warning_shown = True
                             
                             processed_detections.append({
                                 'bbox': bbox,  # [x1, y1, x2, y2]
                                 'class': class_name,
                                 'confidence': float(confidence),
-                                'ripe_score': float(ripe_score) if ripe_score is not None else None
+                                'freshness_score': float(freshness_score) if freshness_score is not None else None
                             })
                         
                         # Update cache and detection time
                         cached_detections = processed_detections
                         last_detection_time = current_time
                         
-                        # Count detected classes and collect ripe scores
+                        # Count detected classes and collect freshness scores
                         current_class_counts = {}
-                        ripe_scores_by_type = {}  # {fruit_type: [ripe_score1, ripe_score2, ...]}
+                        freshness_scores_by_type = {}  # {fruit_type: [freshness_score1, freshness_score2, ...]}
                         
                         for det in processed_detections:
                             class_name = det['class']
                             current_class_counts[class_name] = current_class_counts.get(class_name, 0) + 1
                             
-                            # Collect ripe scores for freshness calculation
-                            if det.get('ripe_score') is not None:
-                                if class_name not in ripe_scores_by_type:
-                                    ripe_scores_by_type[class_name] = []
-                                ripe_scores_by_type[class_name].append(det['ripe_score'])
+                            # Collect freshness scores for freshness calculation
+                            if det.get('freshness_score') is not None:
+                                if class_name not in freshness_scores_by_type:
+                                    freshness_scores_by_type[class_name] = []
+                                freshness_scores_by_type[class_name].append(det['freshness_score'])
                         
                         # Calculate average freshness scores per fruit type
-                        # Note: ripe_score from get_ripe_percentage is already 0-100, but we want 0-1.0
+                        # Note: freshness_score from get_freshness_score is already 0-100, but we want 0-1.0
                         # So we need to divide by 100 to convert back to 0-1.0 scale
                         freshness_updates = {}  # {fruit_type: average_freshness_score}
-                        for fruit_type, ripe_scores in ripe_scores_by_type.items():
+                        for fruit_type, freshness_scores in freshness_scores_by_type.items():
                             # Filter out None values and ensure we have scores
-                            valid_scores = [score for score in ripe_scores if score is not None]
+                            valid_scores = [score for score in freshness_scores if score is not None]
                             if valid_scores and len(valid_scores) > 0:
-                                # ripe_scores are 0-100 from get_ripe_percentage, convert to 0-1.0
+                                # freshness_scores are 0-100 from get_freshness_score, convert to 0-1.0
                                 avg_freshness = (sum(valid_scores) / len(valid_scores)) / 100.0
                                 freshness_updates[fruit_type] = round(avg_freshness, 4)
                         

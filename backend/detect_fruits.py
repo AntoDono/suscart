@@ -7,7 +7,7 @@ import os
 import sys
 from PIL import Image
 from torchvision import transforms
-from ripe_detector import load_model
+from fresh_detector import load_model
 
 # Global YOLO model
 model = YOLO("yolov8l.pt") 
@@ -85,9 +85,9 @@ def detect(image, allowed_classes=['*'], save=True, verbose=True):
     }
 
 
-def get_ripe_transform():
+def get_fresh_transform():
     """
-    Get the preprocessing transform for ripe detection model.
+    Get the preprocessing transform for fresh detection model.
     Uses 224x224 for ResNet compatibility.
     
     Returns:
@@ -100,12 +100,12 @@ def get_ripe_transform():
     ])
 
 
-def load_ripe_detection_model(model_path="./model/ripe_detector.pth"):
+def load_fresh_detection_model(model_path="./model/fresh_detector.pth"):
     """
-    Load and setup the ripe detection model.
+    Load and setup the fresh detection model.
     
     Args:
-        model_path: Path to the ripe detection model file
+        model_path: Path to the fresh detection model file
     
     Returns:
         tuple: (model, device, transform) - The loaded model, device, and transform
@@ -117,17 +117,17 @@ def load_ripe_detection_model(model_path="./model/ripe_detector.pth"):
         device = torch.device("cpu")
     
     # Load model with proper device mapping (handles CUDA->CPU conversion)
-    ripe_model = load_model(model_path, device=device)
-    ripe_model.eval()
-    transform = get_ripe_transform()
-    return ripe_model, device, transform
+    fresh_model = load_model(model_path, device=device)
+    fresh_model.eval()
+    transform = get_fresh_transform()
+    return fresh_model, device, transform
 
-def inference_ripe_from_array(model, image_array, device, transform):
+def inference_fresh_from_array(model, image_array, device, transform):
     """
-    Run ripe detection inference on a numpy array (BGR format from OpenCV).
+    Run fresh detection inference on a numpy array (BGR format from OpenCV).
     
     Args:
-        model: The ripe detection model
+        model: The fresh detection model
         image_array: numpy array in BGR format (from cv2)
         device: torch device
         transform: preprocessing transform
@@ -191,42 +191,42 @@ def crop_bounding_box(frame, bbox):
     return None
 
 
-def get_ripe_percentage(cropped_image, ripe_model, device, transform):
+def get_freshness_score(cropped_image, fresh_model, device, transform):
     """
-    Get ripe percentage for a cropped image.
+    Get freshness score for a cropped image.
     
     Args:
         cropped_image: Cropped image as numpy array
-        ripe_model: The ripe detection model
+        fresh_model: The fresh detection model
         device: torch device
         transform: preprocessing transform
     
     Returns:
-        float or None: Ripe percentage (0-100), or None if error
+        float or None: Freshness score (0-100), or None if error
     """
     try:
-        ripe_probability = inference_ripe_from_array(ripe_model, cropped_image, device, transform)
-        return ripe_probability * 100  # Convert to percentage
+        fresh_probability = inference_fresh_from_array(fresh_model, cropped_image, device, transform)
+        return fresh_probability * 100  # Convert to percentage
     except Exception as e:
-        print(f"Error in ripe detection: {e}")
+        print(f"Error in fresh detection: {e}")
         return None
 
 
-def create_detection_label(class_name, confidence, ripe_percentage=None):
+def create_detection_label(class_name, confidence, freshness_score=None):
     """
     Create a label string for a detection.
     
     Args:
         class_name: Detected class name
         confidence: Detection confidence score
-        ripe_percentage: Ripe percentage (optional)
+        freshness_score: Freshness score (optional)
     
     Returns:
         str: Formatted label string
     """
     label_parts = [f"{class_name}: {confidence:.2f}"]
-    if ripe_percentage is not None:
-        label_parts.append(f"Ripe: {ripe_percentage:.1f}%")
+    if freshness_score is not None:
+        label_parts.append(f"Fresh: {freshness_score:.1f}%")
     return " | ".join(label_parts)
 
 
@@ -393,19 +393,19 @@ class FPSCounter:
         return fps
 
 
-def process_detections_with_ripe(frame, detections, ripe_model, device, transform):
+def process_detections_with_fresh(frame, detections, fresh_model, device, transform):
     """
-    Process detections and add ripe information, then draw on frame.
+    Process detections and add fresh information, then draw on frame.
     
     Args:
         frame: Input frame (numpy array, will be modified)
         detections: List of detection dictionaries
-        ripe_model: The ripe detection model
+        fresh_model: The fresh detection model
         device: torch device
         transform: preprocessing transform
     
     Returns:
-        numpy array: Annotated frame with detections and ripe percentages
+        numpy array: Annotated frame with detections and freshness scores
     """
     annotated_frame = frame.copy()
     
@@ -417,13 +417,13 @@ def process_detections_with_ripe(frame, detections, ripe_model, device, transfor
         # Crop the bounding box
         cropped = crop_bounding_box(frame, bbox)
         
-        # Get ripe percentage if crop is valid
-        ripe_percentage = None
+        # Get freshness score if crop is valid
+        freshness_score = None
         if cropped is not None:
-            ripe_percentage = get_ripe_percentage(cropped, ripe_model, device, transform)
+            freshness_score = get_freshness_score(cropped, fresh_model, device, transform)
         
-        # Create label with class, confidence, and ripe percentage
-        label = create_detection_label(class_name, confidence, ripe_percentage)
+        # Create label with class, confidence, and freshness score
+        label = create_detection_label(class_name, confidence, freshness_score)
         
         # Draw detection on frame
         draw_detection_label(annotated_frame, bbox, label)
@@ -431,21 +431,21 @@ def process_detections_with_ripe(frame, detections, ripe_model, device, transfor
     return annotated_frame
 
 
-def run_webcam_detection(allowed_classes=['*'], ripe_model_path="./model/ripe_detector.pth"):
+def run_webcam_detection(allowed_classes=['*'], fresh_model_path="./model/fresh_detector.pth"):
     """
-    Run real-time detection with ripe analysis on webcam feed.
+    Run real-time detection with fresh analysis on webcam feed.
     
     Args:
         allowed_classes: List of allowed class names for detection (default: ['*'] for all)
-        ripe_model_path: Path to the ripe detection model
+        fresh_model_path: Path to the fresh detection model
     """
-    # Load ripe detection model
+    # Load fresh detection model
     try:
-        ripe_model, device, ripe_transform = load_ripe_detection_model(ripe_model_path)
+        fresh_model, device, fresh_transform = load_fresh_detection_model(fresh_model_path)
     except Exception as e:
-        print(f"Error loading ripe model: {e}")
-        print("Continuing without ripe detection...")
-        ripe_model, device, ripe_transform = None, None, None
+        print(f"Error loading fresh model: {e}")
+        print("Continuing without fresh detection...")
+        fresh_model, device, fresh_transform = None, None, None
     
     # Open webcam - use highest available camera index (prefers USB cameras)
     camera_index = get_best_camera_index()
@@ -455,7 +455,7 @@ def run_webcam_detection(allowed_classes=['*'], ripe_model_path="./model/ripe_de
         print("Error: Could not open webcam")
         return
     
-    print("Starting real-time detection with ripe analysis. Press 'q' to quit.")
+    print("Starting real-time detection with fresh analysis. Press 'q' to quit.")
     
     # Initialize FPS counter
     fps_counter = FPSCounter(window_size=30)
@@ -473,13 +473,13 @@ def run_webcam_detection(allowed_classes=['*'], ripe_model_path="./model/ripe_de
             result = detect(frame, allowed_classes=allowed_classes, save=False, verbose=False)
             detections = result['detections']
             
-            # Process detections with ripe analysis
-            if ripe_model is not None:
-                annotated_frame = process_detections_with_ripe(
-                    frame, detections, ripe_model, device, ripe_transform
+            # Process detections with fresh analysis
+            if fresh_model is not None:
+                annotated_frame = process_detections_with_fresh(
+                    frame, detections, fresh_model, device, fresh_transform
                 )
             else:
-                # Fallback: use YOLO's annotated image if ripe model not available
+                # Fallback: use YOLO's annotated image if fresh model not available
                 annotated_frame = result['annotated_image']
             
             # Update and draw FPS
