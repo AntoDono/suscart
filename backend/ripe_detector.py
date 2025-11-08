@@ -154,7 +154,7 @@ def load_data(path="./setup/data/dataset"):
     
     return train_dataset, test_dataset
 
-def train_model(model, train_dataset, test_dataset, epochs=15, batch_size=32, learning_rate=0.0001):
+def train_model(model, train_dataset, test_dataset, epochs=4, batch_size=32, learning_rate=0.0001):
     """
     Train the RipeDetector model on the training dataset and evaluate on test dataset.
     
@@ -344,7 +344,7 @@ if __name__ == "__main__":
         train_dataset, test_dataset = load_data()
         model = RipeDetector(pretrained=True)  # Use pretrained ResNet18
         print("Starting training with ResNet18 backbone...")
-        trained_model = train_model(model, train_dataset, test_dataset, epochs=15)
+        trained_model = train_model(model, train_dataset, test_dataset, epochs=4)
         model = trained_model
     
     # Inference
