@@ -258,3 +258,66 @@
   font-weight: 600 !important;
   letter-spacing: 0.2em !important;
 }
+
+/* Mobile Styles */
+@media (max-width: 768px) {
+  .customer-title {
+    display: none !important;
+  }
+
+  .customer-login {
+    padding: 1rem !important;
+    gap: 0.5rem !important;
+    justify-content: center !important;
+    width: 100% !important;
+    height: 100% !important;
+    box-sizing: border-box !important;
+    background: #000000 !important;
+  }
+
+  /* Make camera feed much smaller */
+  .customer-login .camera-feed {
+    flex: 0 0 80px !important;
+    width: 100% !important;
+  }
+
+  /* Make terminal much smaller */
+  .customer-login .terminal {
+    min-height: 100px !important;
+    max-height: 180px !important;
+    flex: 0 1 auto !important;
+  }
+
+  .customer-login .terminal-body {
+    padding: 0.5rem !important;
+  }
+
+  .customer-login .fastfetch-container {
+    gap: 0.75rem !important;
+    margin-bottom: 0.4rem !important;
+  }
+
+  .customer-login .ascii-art {
+    font-size: 0.45rem !important;
+    line-height: 1.0 !important;
+  }
+
+  .customer-login .system-info {
+    font-size: 0.55rem !important;
+    gap: 0.15rem !important;
+  }
+
+  .customer-login .terminal-line {
+    font-size: 0.55rem !important;
+    margin-bottom: 0.2rem !important;
+  }
+
+  .customer-login .login-button-wrapper {
+    margin-top: 0.5rem !important;
+  }
+
+  .customer-login .login-button-wrapper .aws-btn {
+    --button-default-height: 50px !important;
+    --button-default-font-size: 0.9rem !important;
+  }
+}

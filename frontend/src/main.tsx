@@ -16,10 +16,13 @@ import FadeIn from './components/FadeIn'
 import AdminDashboard from './components/AdminDashboard'
 import InventoryView from './components/InventoryView'
 import CustomerPortal from './components/CustomerPortal'
+import MobileTerminal from './components/MobileTerminal'
+import useIsMobile from './hooks/useIsMobile'
 import { RiAnthropicFill } from "react-icons/ri"
 
 function App() {
   const [currentPage, setCurrentPage] = useState(window.location.hash);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     const handleHashChange = () => {
@@ -29,6 +32,11 @@ function App() {
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
+
+  // Show mobile terminal on mobile
+  if (isMobile) {
+    return <MobileTerminal />;
+  }
 
   // Admin page
   if (currentPage === '#admin') {
@@ -51,9 +59,9 @@ function App() {
   // User page
   if (currentPage === '#user') {
     return (
-      <div style={{ 
-        width: '100vw', 
-        minHeight: '100vh', 
+      <div style={{
+        width: '100vw',
+        minHeight: '100vh',
         backgroundColor: '#000000',
         overflowY: 'auto',
         overflowX: 'hidden'
@@ -87,7 +95,7 @@ function App() {
       </div>
 
       {/* Title Loop - Top Center */}
-      <div style={{
+      <div className="mobile-hide-decoration" style={{
         position: 'fixed',
         top: 'calc(50% - 325px)',
         left: '550px',
@@ -111,11 +119,11 @@ function App() {
       </div>
 
       {/* Subtitle - Below Title */}
-      <div style={{
+      <div className="mobile-hide-decoration" style={{
         position: 'fixed',
         top: 'calc(50% - 325px + 50px)',
-        left: '550px',
-        right: '550px',
+        left: 0,
+        right: 0,
         zIndex: 3,
         display: 'flex',
         justifyContent: 'center',
@@ -126,7 +134,7 @@ function App() {
       </div>
 
       {/* Dither Container - Left Side (Admin) */}
-      <div style={{
+      <div className="mobile-hide-admin" style={{
         position: 'fixed',
         left: 0,
         top: '50%',
@@ -165,7 +173,7 @@ function App() {
       </div>
 
       {/* Dither Container - Right Side (Customer) */}
-      <div style={{
+      <div className="mobile-center-customer" style={{
         position: 'fixed',
         right: 0,
         top: '50%',
@@ -204,39 +212,45 @@ function App() {
       </div>
 
       {/* Page-level blur overlays - flat across entire page */}
-      <GradualBlur
-        target="page"
-        position="top"
-        height="80px"
-        strength={5}
-        curve="ease-out"
-        divCount={8}
-        opacity={0.35}
-        zIndex={999}
-      />
-      <GradualBlur
-        target="page"
-        position="bottom"
-        height="80px"
-        strength={5}
-        curve="ease-out"
-        divCount={8}
-        opacity={0.35}
-        zIndex={999}
-      />
+      <div className="mobile-hide-decoration">
+        <GradualBlur
+          target="page"
+          position="top"
+          height="80px"
+          strength={5}
+          curve="ease-out"
+          divCount={8}
+          opacity={0.35}
+          zIndex={999}
+        />
+        <GradualBlur
+          target="page"
+          position="bottom"
+          height="80px"
+          strength={5}
+          curve="ease-out"
+          divCount={8}
+          opacity={0.35}
+          zIndex={999}
+        />
+      </div>
 
       {/* Top Header */}
-      <TopHeader />
+      <div className="mobile-hide-decoration">
+        <TopHeader />
+      </div>
 
       {/* Center ASCII Art */}
-      <CenterAscii />
+      <div className="mobile-hide-decoration">
+        <CenterAscii />
+      </div>
 
       {/* Made With - Above Logo Loop */}
-      <div style={{
+      <div className="mobile-hide-decoration" style={{
         position: 'fixed',
         bottom: 'calc(50% - 325px + 50px)',
-        left: '550px',
-        right: '550px',
+        left: 0,
+        right: 0,
         zIndex: 3,
         display: 'flex',
         justifyContent: 'center',
@@ -247,7 +261,7 @@ function App() {
       </div>
 
       {/* LogoLoop - Bottom Center */}
-      <div style={{
+      <div className="mobile-hide-decoration" style={{
         position: 'fixed',
         bottom: 'calc(50% - 325px)',
         left: '550px',
@@ -270,7 +284,7 @@ function App() {
         />
       </div>
 
-      <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1 }}>
+      <div className="mobile-hide-decoration" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1 }}>
         <Canvas
           style={{ width: '100%', height: '100%', pointerEvents: 'auto' }}
           gl={{
