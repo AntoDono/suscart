@@ -5,7 +5,7 @@ import Experience from './Experience'
 import { Canvas } from '@react-three/fiber'
 import { EffectComposer, Bloom } from '@react-three/postprocessing'
 import Balatro from './components/Balatro'
-import GlassForm from './components/GlassForm'
+import SimpleGlass from './components/SimpleGlass'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -27,7 +27,7 @@ createRoot(document.getElementById('root')!).render(
         />
       </div>
 
-      {/* Admin Form - Left Side */}
+      {/* Glass Surface - Left Side */}
       <div style={{
         position: 'fixed',
         left: '4rem',
@@ -35,10 +35,14 @@ createRoot(document.getElementById('root')!).render(
         transform: 'translateY(-50%)',
         zIndex: 2,
       }}>
-        <GlassForm />
+        <SimpleGlass width={350} height={500} borderRadius={0}>
+          <h2 style={{ fontFamily: '"Geist Mono", monospace', fontWeight: 100, fontSize: '2rem', color: '#ffffff', textTransform: 'lowercase' }}>
+            suscart
+          </h2>
+        </SimpleGlass>
       </div>
 
-      {/* User Form - Right Side */}
+      {/* Glass Surface - Right Side */}
       <div style={{
         position: 'fixed',
         right: '4rem',
@@ -46,7 +50,11 @@ createRoot(document.getElementById('root')!).render(
         transform: 'translateY(-50%)',
         zIndex: 2,
       }}>
-        <GlassForm />
+        <SimpleGlass width={350} height={500} borderRadius={0}>
+          <h2 style={{ fontFamily: '"Geist Mono", monospace', fontWeight: 100, fontSize: '2rem', color: '#ffffff', textTransform: 'lowercase' }}>
+            suscart
+          </h2>
+        </SimpleGlass>
       </div>
 
       <Canvas
