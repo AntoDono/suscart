@@ -2,6 +2,19 @@ import { useState, useEffect, useRef } from 'react';
 import './AdminDashboard.css';
 import { config } from '../config';
 
+interface FreshnessData {
+  id: number;
+  inventory_id: number;
+  freshness_score: number;
+  predicted_expiry_date?: string | null;
+  confidence_level?: number;
+  discount_percentage: number;
+  status: string;
+  last_checked?: string;
+  image_url?: string | null;
+  notes?: string | null;
+}
+
 interface InventoryItem {
   id: number;
   store_id: number;
@@ -10,8 +23,11 @@ interface InventoryItem {
   quantity: number;
   batch_number?: string;
   location_in_store?: string;
+  arrival_date?: string;
   original_price: number;
   current_price: number;
+  discount_percentage?: number;
+  freshness?: FreshnessData;
   created_at: string;
   updated_at: string;
 }
@@ -23,6 +39,7 @@ interface QuantityChange {
   new_quantity: number;
   delta: number;
   change_type: 'increase' | 'decrease';
+  freshness_score?: number | null;
   timestamp: string;
 }
 
@@ -182,6 +199,7 @@ const InventoryView = () => {
         new_quantity: data.data.new_quantity,
         delta: data.data.delta,
         change_type: data.data.change_type,
+        freshness_score: data.data.freshness_score,
         timestamp: data.timestamp || new Date().toISOString()
       };
       
@@ -259,29 +277,40 @@ const InventoryView = () => {
                 <tr>
                   <th>ID</th>
                   <th>Fruit Type</th>
-                  <th>Variety</th>
                   <th>Quantity</th>
-                  <th>Price</th>
-                  <th>Location</th>
-                  <th>Batch</th>
+                  <th>Arrival Date</th>
+                  <th>Original Price</th>
+                  <th>Current Price</th>
+                  <th>Discount %</th>
+                  <th>Freshness</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {inventory.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="empty-cell">No inventory items</td>
+                    <td colSpan={9} className="empty-cell">No inventory items</td>
                   </tr>
                 ) : (
                   inventory.map(item => (
                     <tr key={item.id}>
                       <td>{item.id}</td>
                       <td className="fruit-type-cell">{item.fruit_type}</td>
-                      <td>{item.variety || '-'}</td>
                       <td className="quantity-cell">{item.quantity}</td>
+                      <td>{item.arrival_date ? new Date(item.arrival_date).toLocaleDateString() : '-'}</td>
+                      <td>${item.original_price.toFixed(2)}</td>
                       <td>${item.current_price.toFixed(2)}</td>
-                      <td>{item.location_in_store || '-'}</td>
-                      <td>{item.batch_number || '-'}</td>
+                      <td>{item.discount_percentage !== undefined ? `${item.discount_percentage.toFixed(1)}%` : '-'}</td>
+                      <td>
+                        {item.freshness ? (
+                          <div>
+                            <div>Score: {(item.freshness.freshness_score * 100).toFixed(1)}%</div>
+                            <div style={{ fontSize: '0.85em', color: item.freshness.status === 'fresh' ? '#7ECA9C' : item.freshness.status === 'warning' ? '#FFA500' : item.freshness.status === 'critical' ? '#FF6B6B' : '#999' }}>
+                              {item.freshness.status.toUpperCase()}
+                            </div>
+                          </div>
+                        ) : '-'}
+                      </td>
                       <td>
                         <button 
                           className="inventory-action-btn edit-btn" 
@@ -326,6 +355,11 @@ const InventoryView = () => {
                     <span className="change-quantities">
                       {change.old_quantity} → {change.new_quantity}
                     </span>
+                    {change.freshness_score !== null && change.freshness_score !== undefined && (
+                      <span className="change-freshness" style={{ marginLeft: '1rem', fontSize: '0.9em', color: '#7ECA9C' }}>
+                        Freshness: {(change.freshness_score * 100).toFixed(1)}%
+                      </span>
+                    )}
                   </div>
                 </div>
               ))

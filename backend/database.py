@@ -80,23 +80,23 @@ def seed_sample_data(app):
             # Calculate freshness based on age
             days_old = (datetime.utcnow() - item.arrival_date).days
             
-            # Simulate varying freshness levels
+            # Simulate varying freshness levels (0-1.0 scale)
             if days_old <= 2:
-                freshness_score = random.uniform(85, 100)
+                freshness_score = random.uniform(0.85, 1.0)
             elif days_old <= 5:
-                freshness_score = random.uniform(60, 85)
+                freshness_score = random.uniform(0.60, 0.85)
             elif days_old <= 8:
-                freshness_score = random.uniform(30, 60)
+                freshness_score = random.uniform(0.30, 0.60)
             else:
-                freshness_score = random.uniform(10, 40)
+                freshness_score = random.uniform(0.10, 0.40)
             
             # Predicted expiry (simulate)
-            days_until_expiry = int((freshness_score / 100) * 10)
+            days_until_expiry = int(freshness_score * 10)
             predicted_expiry = datetime.utcnow() + timedelta(days=days_until_expiry)
             
             freshness = FreshnessStatus(
                 inventory_id=item.id,
-                freshness_score=round(freshness_score, 2),
+                freshness_score=round(freshness_score, 4),  # Store as 0-1.0 scale
                 predicted_expiry_date=predicted_expiry,
                 confidence_level=random.uniform(0.8, 0.99),
                 last_checked=datetime.utcnow()

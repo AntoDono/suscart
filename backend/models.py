@@ -113,25 +113,37 @@ class FreshnessStatus(db.Model):
         }
     
     def calculate_discount(self):
-        """Calculate discount based on freshness score"""
-        if self.freshness_score >= 80:
-            return 0
-        elif self.freshness_score >= 60:
-            return 10
-        elif self.freshness_score >= 40:
-            return 25
-        elif self.freshness_score >= 20:
-            return 50
-        else:
-            return 75
+        """
+        Calculate discount based on freshness score using a dynamic formula.
+        Lower freshness = higher discount.
+        Formula: discount = max_discount * (1 - freshness_score^power)
+        This creates a smooth curve where:
+        - freshness_score = 1.0 → discount = 0%
+        - freshness_score = 0 → discount = max_discount%
+        Note: freshness_score is 0-1.0 scale (not 0-100)
+        """
+        # Maximum discount at 0 freshness (75%)
+        max_discount = 75.0
+        # Power factor controls the curve shape (higher = more aggressive discounting at lower freshness)
+        # Using 1.5 for a moderate curve that discounts more aggressively as freshness decreases
+        power = 1.5
+        
+        # Clamp freshness_score between 0 and 1.0
+        freshness = max(0.0, min(1.0, self.freshness_score))
+        
+        # Calculate discount: starts at 0% for 1.0 freshness, increases as freshness decreases
+        # Using inverse relationship: discount increases as freshness decreases
+        discount = max_discount * (1 - (freshness ** power))
+        
+        return round(discount, 2)
     
     def update_status(self):
-        """Update status based on freshness score"""
-        if self.freshness_score >= 70:
+        """Update status based on freshness score (0-1.0 scale)"""
+        if self.freshness_score >= 0.7:
             self.status = 'fresh'
-        elif self.freshness_score >= 40:
+        elif self.freshness_score >= 0.4:
             self.status = 'warning'
-        elif self.freshness_score >= 10:
+        elif self.freshness_score >= 0.1:
             self.status = 'critical'
         else:
             self.status = 'expired'
