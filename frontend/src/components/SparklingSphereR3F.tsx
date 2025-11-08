@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
+import { createNoise3D } from 'simplex-noise';
 
 interface EmittedParticle {
   mesh: THREE.Mesh;
@@ -35,27 +36,27 @@ interface SparklingSphereR3FProps {
 }
 
 const baseColors = [
-  new THREE.Color(0x88ccff), // Light blue
-  new THREE.Color(0x7dabf1), // Medium blue
-  new THREE.Color(0x6a8dff), // Deep blue
+  new THREE.Color(0xCCFFBD), // Light mint - rgb(204, 255, 189)
+  new THREE.Color(0xAAF0D1), // Aqua mint - rgb(170, 240, 209)
+  new THREE.Color(0x7ECA9C), // Mint green - rgb(126, 202, 156)
 ];
 const repelColors = [
-  new THREE.Color('purple'), // Start with red
-  new THREE.Color('violet'), // Transition through orange
-  new THREE.Color('magenta'), // End with magenta
+  new THREE.Color(0xECDBBA), // Warm cream on hit - rgb(236, 219, 186)
+  new THREE.Color(0xC84B31), // Gruvbox orange/red - rgb(200, 75, 49)
+  new THREE.Color(0x161616), // Almost black - rgb(22, 22, 22)
 ];
 
 export const SparklingSphereR3F = ({
-  radius = 0.81,
+  radius = 1.5,
   particleCount = 1000,
   interactionRadius = 1.5 * radius,
   maxGlowIntensity = 9,
   baseGlowIntensity = 2,
-  dispersalForce = 0.05,
-  returnForce = 0.02,
-  dampingFactor = 0.95,
-  rotationSpeed = 0.0025,
-  maxRepelDistance = 0.5,
+  dispersalForce = 0.015,        // Reduced from 0.05 - much gentler push
+  returnForce = 0.01,            // Reduced from 0.02 - slower return
+  dampingFactor = 0.92,          // Reduced from 0.95 - more resistance/smoother
+  rotationSpeed = 0.001,         // Reduced from 0.0025 - slower rotation
+  maxRepelDistance = 0.3,        // Reduced from 0.5 - particles don't travel as far
 }: SparklingSphereR3FProps) => {
   const groupRef = useRef<THREE.Group>(null);
   const particles = useRef<ParticleProps[]>([]);
@@ -66,12 +67,13 @@ export const SparklingSphereR3F = ({
   const mouseVelocity = useRef(new THREE.Vector3());
   const raycaster = useRef(new THREE.Raycaster());
   const lastTime = useRef(0);
+  const noise3D = useRef(createNoise3D());
 
   const emitParticles = (position: THREE.Vector3, direction: THREE.Vector3, color: THREE.Color, speed: number) => {
-    // Drastically reduced emission - only emit 1-2 particles
-    const emitCount = Math.random() > 0.5 ? 1 : 2;
+    // Super minimal emission - only 1 particle sometimes
+    const emitCount = Math.random() > 0.7 ? 1 : 0;
     const emitGeometry = new THREE.IcosahedronGeometry(0.003, 1);
-    const baseSpeed = speed * 2;
+    const baseSpeed = speed * 1;
 
     for (let i = 0; i < emitCount; i++) {
       const spread = new THREE.Vector3(
@@ -185,11 +187,46 @@ export const SparklingSphereR3F = ({
 
     // Update particles
     particles.current.forEach((particle) => {
+      // Add natural distortion using noise
+      const noiseScale = 0.5; // Scale of noise
+      const noiseStrength = 0.02; // Strength of distortion
+      const noiseSpeed = 0.3; // Speed of animation
+
+      const noiseValue = noise3D.current(
+        particle.originalPosition.x * noiseScale,
+        particle.originalPosition.y * noiseScale,
+        particle.originalPosition.z * noiseScale + currentTime * noiseSpeed
+      );
+
+      // Apply natural breathing motion
+      const breathingOffset = particle.originalPosition
+        .clone()
+        .normalize()
+        .multiplyScalar(noiseValue * noiseStrength);
+
+      // Add the breathing motion to velocity gently
+      particle.velocity.add(breathingOffset.multiplyScalar(0.1));
+
+      // Calculate distortion-based color - map noise value to color
+      const distortionAmount = Math.abs(noiseValue); // 0 to 1
+      const distortionColor = new THREE.Color();
+
+      // Interpolate through base colors based on distortion
+      if (distortionAmount < 0.5) {
+        // Low distortion: interpolate between first two base colors
+        const t = distortionAmount * 2;
+        distortionColor.lerpColors(baseColors[0], baseColors[1], t);
+      } else {
+        // High distortion: interpolate between second and third base colors
+        const t = (distortionAmount - 0.5) * 2;
+        distortionColor.lerpColors(baseColors[1], baseColors[2], t);
+      }
+
       const distanceToMouse = mousePosition3D.current.distanceTo(particle.position);
       const isInRange = distanceToMouse < interactionRadius;
 
-      // Scale force based on mouse speed and distance
-      const speedFactor = Math.min(mouseSpeed * 5, 2); // Cap the speed multiplier
+      // Scale force based on mouse speed and distance - much gentler
+      const speedFactor = Math.min(mouseSpeed * 2, 1); // Reduced multiplier and cap
       const distanceFactor = 1 - (distanceToMouse / interactionRadius);
       const force = isInRange
         ? dispersalForce * speedFactor * distanceFactor
@@ -202,12 +239,12 @@ export const SparklingSphereR3F = ({
           .sub(mousePosition3D.current)
           .normalize();
 
-        // Add some influence from mouse velocity direction
+        // Add some influence from mouse velocity direction - reduced
         const mouseInfluence = mouseVelocity.current.clone().normalize();
-        repulsionDir.lerp(mouseInfluence, 0.3); // 30% influence from mouse direction
+        repulsionDir.lerp(mouseInfluence, 0.15); // Reduced from 0.3 to 0.15
 
-        // Apply force with some randomization
-        const randomFactor = 1 + (Math.random() - 0.5) * 0.4; // ±20% variation
+        // Apply force with less randomization for smoother movement
+        const randomFactor = 1 + (Math.random() - 0.5) * 0.2; // Reduced from ±20% to ±10%
         particle.velocity.add(
           repulsionDir.multiplyScalar(force * randomFactor)
         );
@@ -242,8 +279,8 @@ export const SparklingSphereR3F = ({
 
         // Emit particles on collision with longer cooldown and probability check
         const currentTime = state.clock.getElapsedTime();
-        // Only 10% of particles emit, and only every 0.5 seconds
-        if (Math.random() < 0.1 && (!particle.lastEmitTime || currentTime - particle.lastEmitTime > 0.5)) {
+        // Only 3% of particles emit, and only every 1 second
+        if (Math.random() < 0.03 && (!particle.lastEmitTime || currentTime - particle.lastEmitTime > 1.0)) {
           emitParticles(
             particle.position.clone(),
             particle.velocity.clone().normalize(),
@@ -253,28 +290,37 @@ export const SparklingSphereR3F = ({
           particle.lastEmitTime = currentTime;
         }
       } else {
-        // Calculate return progress through color sequence
-        const returnProgress = 1 - Math.min(particle.maxDistanceTraveled / maxRepelDistance, 1);
+        // Not in mouse range - use distortion-based colors
+        if (particle.maxDistanceTraveled > 0.01) {
+          // Still returning from mouse interaction
+          const returnProgress = 1 - Math.min(particle.maxDistanceTraveled / maxRepelDistance, 1);
 
-        // Determine which colors to lerp between for return
-        const colorIndex = Math.min(
-          Math.floor((1 - returnProgress) * (repelColors.length - 1)),
-          repelColors.length - 2
-        );
-        const colorProgress = ((1 - returnProgress) * (repelColors.length - 1)) % 1;
+          // Determine which colors to lerp between for return
+          const colorIndex = Math.min(
+            Math.floor((1 - returnProgress) * (repelColors.length - 1)),
+            repelColors.length - 2
+          );
+          const colorProgress = ((1 - returnProgress) * (repelColors.length - 1)) % 1;
 
-        // Lerp between current and next color
-        const returnColor = new THREE.Color();
-        returnColor.lerpColors(
-          repelColors[colorIndex],
-          repelColors[colorIndex + 1],
-          colorProgress
-        );
+          // Lerp between current and next color
+          const returnColor = new THREE.Color();
+          returnColor.lerpColors(
+            repelColors[colorIndex],
+            repelColors[colorIndex + 1],
+            colorProgress
+          );
 
-        particle.mesh.material.color = returnColor.lerp(particle.baseColor, returnProgress);
-        particle.mesh.material.emissive = returnColor;
-        particle.mesh.material.emissiveIntensity = 2 + (1 - returnProgress) * 3;
-        particle.mesh.material.opacity = 0.9;
+          particle.mesh.material.color = returnColor.lerp(distortionColor, returnProgress);
+          particle.mesh.material.emissive = returnColor.lerp(distortionColor, returnProgress);
+          particle.mesh.material.emissiveIntensity = 2 + (1 - returnProgress) * 3;
+          particle.mesh.material.opacity = 0.9;
+        } else {
+          // Fully at rest - use distortion-based color
+          particle.mesh.material.color = distortionColor;
+          particle.mesh.material.emissive = distortionColor;
+          particle.mesh.material.emissiveIntensity = 2 + distortionAmount * 3;
+          particle.mesh.material.opacity = 0.9;
+        }
 
         // Reset max distance when particle returns close to original position
         if (particle.position.distanceTo(particle.originalPosition) < 0.1) {
