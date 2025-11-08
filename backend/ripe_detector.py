@@ -9,7 +9,7 @@ from tqdm import tqdm
 import os
 
 class RipeDetector(nn.Module):
-    def __init__(self, dropout_rate=0.5):
+    def __init__(self, dropout_rate=0.3):
         super(RipeDetector, self).__init__()
         # Lighter model: reduced channels and FC size
         # First convolutional layer: 3 input channels (RGB), 8 output channels, 3x3 kernel
@@ -145,7 +145,7 @@ def load_data(path="./setup/data/dataset"):
     
     return train_dataset, test_dataset
 
-def train_model(model, train_dataset, test_dataset, epochs=4, batch_size=64, learning_rate=0.001):
+def train_model(model, train_dataset, test_dataset, epochs=8, batch_size=64, learning_rate=0.001):
     """
     Train the RipeDetector model on the training dataset and evaluate on test dataset.
     
@@ -292,6 +292,9 @@ if __name__ == "__main__":
         trained_model = train_model(model, train_dataset, test_dataset)
     
     # Inference
-    image_path = "./setup/data/dataset/Test/fresh/00000000.jpg"
-    probability = inference(model, image_path)
-    print(f"Probability of being fresh: {probability}")
+    img1 = "./setup/data/dataset/Test/freshapples/a_f001.jpg"
+    img2 = "./setup/data/dataset/Test/rottenapples/a_r001.jpg"
+    probability1 = inference(model, img1)
+    probability2 = inference(model, img2)
+    print(f"Probability of being fresh: {probability1}")
+    print(f"Probability of being rotten: {probability2}")
