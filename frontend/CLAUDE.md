@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a React + TypeScript + Vite frontend project for "suscart" - a landing page featuring layered interactive visual effects combining WebGL shaders, 3D particle systems, and glassmorphic UI components. The page showcases multiple rendering technologies stacked in z-index layers.
+This is a React + TypeScript + Vite frontend project for "edgecart" - a landing page featuring layered interactive visual effects combining WebGL shaders, 3D particle systems, and glassmorphic UI components. The page showcases multiple rendering technologies stacked in z-index layers.
 
 ## Development Commands
 

@@ -55,7 +55,7 @@ const getGradientDirection = (position: string) =>
   })[position] || 'to bottom';
 
 const debounce = (fn: Function, wait: number) => {
-  let t: NodeJS.Timeout;
+  let t: ReturnType<typeof setTimeout>;
   return (...a: any[]) => {
     clearTimeout(t);
     t = setTimeout(() => fn(...a), wait);

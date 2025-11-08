@@ -246,7 +246,6 @@ function App() {
           gl={{
             antialias: true,
             toneMapping: 3, // ACESFilmicToneMapping
-            outputEncoding: 3, // sRGBEncoding
             alpha: true,
           }}
           dpr={[1, 2]}

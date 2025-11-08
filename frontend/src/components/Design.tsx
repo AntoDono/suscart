@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Sparkles } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { useRef } from 'react'

@@ -18,7 +18,7 @@ const Terminal = () => {
   };
 
   const terminalMessages = [
-    'Initializing EdgeCart monitoring system...',
+    'Initializing edgecart monitoring system...',
     'Camera feed connected: Store_A_Produce_01',
     'AI model loaded: freshness-detection-v2.3',
     'Scanning inventory... 247 items detected',

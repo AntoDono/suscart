@@ -18,7 +18,7 @@ const Terminal = () => {
   };
 
   const terminalMessages = [
-    'Connecting to EdgeCart customer portal...',
+    'Connecting to edgecart customer portal...',
     'Authentication service: Ready',
     'Loading personalized offers...',
     'Scanning local inventory data...',

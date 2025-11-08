@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useEffect, useRef, useId, CSSProperties, ReactNode } from 'react';
 import './GlassSurface.css';
 

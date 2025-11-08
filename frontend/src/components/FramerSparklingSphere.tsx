@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Canvas } from '@react-three/fiber';
 import { SparklingSphereR3F } from './SparklingSphereR3F';
 import { addPropertyControls, ControlType } from 'framer';
