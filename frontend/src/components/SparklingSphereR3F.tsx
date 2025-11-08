@@ -47,7 +47,7 @@ const repelColors = [
 ];
 
 export const SparklingSphereR3F = ({
-  radius = 1.5,
+  radius = 1.2,
   particleCount = 1000,
   interactionRadius = 1.5 * radius,
   maxGlowIntensity = 9,
