@@ -18,10 +18,10 @@ const FadeIn = () => {
       setIsVisible(false);
     }, 2500);
 
-    // Remove from DOM completely after fade out completes (2.5s + 3.5s transition = 6s)
+    // Remove from DOM completely after fade out completes (2.5s + 2s transition = 4.5s)
     const removeTimer = setTimeout(() => {
       setShouldRender(false);
-    }, 6000);
+    }, 4500);
 
     return () => {
       clearTimeout(cubeTimer);
