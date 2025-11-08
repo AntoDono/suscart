@@ -5,7 +5,7 @@ import Experience from './Experience'
 import { Canvas } from '@react-three/fiber'
 import { EffectComposer, Bloom } from '@react-three/postprocessing'
 import Balatro from './components/Balatro'
-import LoginPanel from './components/LoginPanel'
+import GlassForm from './components/GlassForm'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -15,9 +15,9 @@ createRoot(document.getElementById('root')!).render(
           isRotate={false}
           mouseInteraction={true}
           pixelFilter={6969}
-          color1="#000000"
+          color1="#101111ff"
           color2="#2a382aff"
-          color3="#0d0d0dff"
+          color3="#000000ff"
           spinRotation={-2.0}
           spinSpeed={7.0}
           contrast={1.5}
@@ -27,7 +27,7 @@ createRoot(document.getElementById('root')!).render(
         />
       </div>
 
-      {/* Admin Panel - Left Side */}
+      {/* Admin Form - Left Side */}
       <div style={{
         position: 'fixed',
         left: '4rem',
@@ -35,10 +35,10 @@ createRoot(document.getElementById('root')!).render(
         transform: 'translateY(-50%)',
         zIndex: 2,
       }}>
-        <LoginPanel title="admin console" />
+        <GlassForm />
       </div>
 
-      {/* User Panel - Right Side */}
+      {/* User Form - Right Side */}
       <div style={{
         position: 'fixed',
         right: '4rem',
@@ -46,7 +46,7 @@ createRoot(document.getElementById('root')!).render(
         transform: 'translateY(-50%)',
         zIndex: 2,
       }}>
-        <LoginPanel title="user login" />
+        <GlassForm />
       </div>
 
       <Canvas
