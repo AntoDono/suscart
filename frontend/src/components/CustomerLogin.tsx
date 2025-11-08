@@ -169,6 +169,12 @@ const CustomerLogin = () => {
         </div>
       </div>
 
+      {/* Mobile branding - shown only on mobile inside terminal */}
+      <div className="mobile-terminal-branding">
+        <img src="/edgecart.png" alt="edgecart" className="mobile-terminal-logo" />
+        <p className="mobile-terminal-subtitle">finding alpha in grocery arbitrage</p>
+      </div>
+
       <Terminal />
 
       <div className="login-button-wrapper">

@@ -258,3 +258,114 @@
   font-weight: 600 !important;
   letter-spacing: 0.2em !important;
 }
+
+/* Mobile terminal branding - hidden on desktop */
+.mobile-terminal-branding {
+  display: none;
+}
+
+/* Mobile Styles */
+@media (max-width: 768px) {
+  .customer-title {
+    display: none !important;
+  }
+
+  .customer-login {
+    padding: 0 !important;
+    gap: 0 !important;
+    justify-content: flex-start !important;
+    width: 100% !important;
+    height: auto !important;
+    box-sizing: border-box !important;
+    background: transparent !important;
+  }
+
+  /* Hide camera feed on mobile */
+  .customer-login .camera-feed {
+    display: none !important;
+  }
+
+  /* Show mobile branding inside terminal */
+  .mobile-terminal-branding {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+    padding: 1rem !important;
+    background: #101111 !important;
+    border-radius: 8px 8px 0 0 !important;
+    border: 1px solid rgba(170, 240, 209, 0.15) !important;
+    border-bottom: none !important;
+    margin-bottom: 0 !important;
+  }
+
+  .mobile-terminal-logo {
+    height: 32px !important;
+    filter: brightness(0) invert(1) !important;
+  }
+
+  .mobile-terminal-subtitle {
+    font-family: "Geist Mono", monospace !important;
+    font-weight: 100 !important;
+    font-size: 0.75rem !important;
+    color: #ffffff !important;
+    text-transform: lowercase !important;
+    margin: 0 !important;
+    opacity: 0.7 !important;
+  }
+
+  .customer-login .terminal-header {
+    flex-direction: row !important;
+    justify-content: flex-start !important;
+    border-radius: 0 !important;
+    margin-top: 0 !important;
+  }
+
+  .customer-login .terminal-title {
+    text-align: left !important;
+    flex: 1 !important;
+  }
+
+  /* Make terminal taller and properly spaced */
+  .customer-login .terminal {
+    min-height: 240px !important;
+    max-height: 300px !important;
+    flex: 0 1 auto !important;
+    border-radius: 0 0 8px 8px !important;
+    border-top: 1px solid rgba(170, 240, 209, 0.15) !important;
+    margin-top: 0 !important;
+  }
+
+  .customer-login .terminal-body {
+    padding: 0.5rem !important;
+  }
+
+  .customer-login .fastfetch-container {
+    gap: 0.75rem !important;
+    margin-bottom: 0.4rem !important;
+  }
+
+  .customer-login .ascii-art {
+    font-size: 0.45rem !important;
+    line-height: 1.0 !important;
+  }
+
+  .customer-login .system-info {
+    font-size: 0.55rem !important;
+    gap: 0.15rem !important;
+  }
+
+  .customer-login .terminal-line {
+    font-size: 0.55rem !important;
+    margin-bottom: 0.2rem !important;
+  }
+
+  .customer-login .login-button-wrapper {
+    margin-top: 0.5rem !important;
+  }
+
+  .customer-login .login-button-wrapper .aws-btn {
+    --button-default-height: 50px !important;
+    --button-default-font-size: 0.9rem !important;
+  }
+}

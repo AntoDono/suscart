@@ -9,7 +9,7 @@ const TopHeader = () => {
       <span className="header-spacer">✦</span>
 
       <a
-        href="https://github.com"
+        href="https://github.com/AntoDono/edgecart"
         target="_blank"
         rel="noopener noreferrer"
         className="header-icon header-icon-left"
@@ -30,7 +30,7 @@ const TopHeader = () => {
       <span className="header-spacer">✦</span>
 
       <a
-        href="https://devpost.com"
+        href="https://devpost.com/software/edgecart"
         target="_blank"
         rel="noopener noreferrer"
         className="header-icon header-icon-right"

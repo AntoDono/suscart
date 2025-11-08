@@ -1,0 +1,94 @@
+.mobile-terminal {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  background-color: #000;
+  position: relative;
+}
+
+.mobile-background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+}
+
+.mobile-top-header {
+  position: fixed;
+  top: 0.75rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  z-index: 1000;
+  pointer-events: auto;
+  background: rgba(16, 17, 17, 0.4);
+  backdrop-filter: blur(10px);
+  padding: 0.75rem 1.5rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.mobile-mlh-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mobile-mlh-logo img {
+  height: 24px;
+  width: auto;
+  filter: brightness(0) invert(1) sepia(10%) saturate(200%) hue-rotate(60deg) brightness(200%);
+}
+
+.mobile-header-icon {
+  color: #F5FFFA;
+  font-size: 1.1rem;
+  transition: opacity 0.3s ease, transform 0.2s ease;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mobile-header-icon:hover {
+  opacity: 0.8;
+  transform: scale(1.1);
+}
+
+.mobile-header-spacer {
+  color: #F5FFFA;
+  font-size: 0.75rem;
+  font-family: "Geist Mono", monospace;
+}
+
+.mobile-login-container {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  width: 90%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  filter: drop-shadow(0 8px 32px rgba(0, 0, 0, 0.5));
+}
+
+.mobile-footer-text {
+  font-family: "Geist Mono", monospace;
+  font-weight: 100;
+  font-size: 0.7rem;
+  color: #ffffff;
+  text-transform: lowercase;
+  margin: 0;
+  opacity: 0.6;
+  text-align: center;
+}
