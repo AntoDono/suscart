@@ -561,6 +561,61 @@ def get_customer(customer_id):
         return jsonify({'error': str(e)}), 404
 
 
+@app.route('/api/customers/<int:customer_id>/purchases', methods=['GET'])
+def get_customer_purchases(customer_id):
+    """Get customer's purchase history"""
+    try:
+        # Verify customer exists
+        customer = Customer.query.get_or_404(customer_id)
+        
+        # Get purchases ordered by most recent first
+        purchases = PurchaseHistory.query.filter_by(
+            customer_id=customer_id
+        ).order_by(PurchaseHistory.purchase_date.desc()).all()
+        
+        return jsonify({
+            'count': len(purchases),
+            'customer': {
+                'id': customer.id,
+                'name': customer.name
+            },
+            'purchases': [p.to_dict() for p in purchases]
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 404
+
+
+@app.route('/api/customers/<int:customer_id>/knot-transactions', methods=['GET'])
+def get_customer_knot_transactions(customer_id):
+    """Get customer's original Knot transaction data"""
+    try:
+        customer = Customer.query.get_or_404(customer_id)
+        
+        if not customer.knot_customer_id:
+            return jsonify({
+                'error': 'Customer not connected to Knot',
+                'transactions': []
+            }), 200
+        
+        # Fetch fresh transactions from Knot
+        transactions = knot_client.get_customer_transactions(
+            customer.knot_customer_id,
+            limit=25
+        )
+        
+        return jsonify({
+            'count': len(transactions),
+            'customer': {
+                'id': customer.id,
+                'name': customer.name,
+                'knot_customer_id': customer.knot_customer_id
+            },
+            'transactions': transactions
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/customers/<int:customer_id>/notify', methods=['POST'])
 def notify_customer_api(customer_id):
     """API endpoint to send notification to a customer via WebSocket"""
@@ -796,14 +851,19 @@ def generate_recommendations_for_item(inventory_id):
     try:
         item = FruitInventory.query.get(inventory_id)
         if not item or not item.freshness:
+            print(f"⚠️  Item {inventory_id} not found or has no freshness data")
             return
         
         # Only recommend if there's a decent discount
         if item.freshness.discount_percentage < 15:
+            print(f"⚠️  Item {inventory_id} discount too low ({item.freshness.discount_percentage}%), skipping recommendations")
             return
+        
+        print(f"🔍 Finding customers who like {item.fruit_type} (discount: {item.freshness.discount_percentage}%)")
         
         # Find customers who like this fruit type
         customers = Customer.query.all()
+        recommendations_created = []
         
         for customer in customers:
             prefs = customer.get_preferences()
@@ -811,10 +871,14 @@ def generate_recommendations_for_item(inventory_id):
             max_price = prefs.get('max_price', 10.0)
             preferred_discount = prefs.get('preferred_discount', 20)
             
+            print(f"  Checking customer {customer.id} ({customer.name}): favorites={favorite_fruits}")
+            
             # Check if this item matches customer preferences
             if (item.fruit_type in favorite_fruits and 
                 item.current_price <= max_price and
                 item.freshness.discount_percentage >= preferred_discount):
+                
+                print(f"  ✅ Match! Creating recommendation for customer {customer.id}")
                 
                 # Create recommendation
                 recommendation = Recommendation(
@@ -832,14 +896,36 @@ def generate_recommendations_for_item(inventory_id):
                 })
                 
                 db.session.add(recommendation)
+                db.session.flush()  # Get ID without committing
                 
-                # Notify customer
-                notify_customer(customer.id, 'new_recommendation', recommendation.to_dict())
+                # Store for notification after commit
+                recommendations_created.append({
+                    'customer_id': customer.id,
+                    'recommendation': recommendation
+                })
         
+        # Commit all recommendations at once
         db.session.commit()
+        
+        # NOW send notifications (after commit, so data is in DB)
+        for rec_info in recommendations_created:
+            customer_id = rec_info['customer_id']
+            recommendation = rec_info['recommendation']
+            
+            print(f"📨 Sending notification to customer {customer_id} for recommendation {recommendation.id}")
+            
+            # Send notification with full data
+            notify_customer(customer_id, 'new_recommendation', {
+                'recommendation_id': recommendation.id,
+                'item': recommendation.to_dict()
+            })
+        
+        print(f"✅ Created {len(recommendations_created)} recommendations for item {inventory_id}")
     
     except Exception as e:
-        print(f"Error generating recommendations: {e}")
+        print(f"❌ Error generating recommendations: {e}")
+        import traceback
+        traceback.print_exc()
         db.session.rollback()
 
 
@@ -955,16 +1041,20 @@ def admin_websocket(ws):
 @sock.route('/ws/customer/<int:customer_id>')
 def customer_websocket(ws, customer_id):
     """WebSocket for customer app - real-time notifications"""
+    print(f"🔌 Customer {customer_id} connecting to WebSocket...")
     customer_connections[customer_id] = ws
+    
     try:
         # Send welcome message
         ws.send(json.dumps({
             'type': 'connected',
             'message': 'Connected to SusCart notifications',
+            'customer_id': customer_id,
             'timestamp': datetime.utcnow().isoformat()
         }))
+        print(f"✅ Customer {customer_id} WebSocket connected")
         
-        # Keep connection alive
+        # Keep connection alive and listen for messages
         while True:
             data = ws.receive()
             if data:
@@ -973,18 +1063,23 @@ def customer_websocket(ws, customer_id):
                     action_data = json.loads(data)
                     if action_data.get('action') == 'view_recommendation':
                         rec_id = action_data.get('recommendation_id')
-                        rec = Recommendation.query.get(rec_id)
-                        if rec:
-                            rec.viewed = True
-                            db.session.commit()
-                except json.JSONDecodeError:
-                    pass
+                        with app.app_context():
+                            rec = Recommendation.query.get(rec_id)
+                            if rec:
+                                rec.viewed = True
+                                db.session.commit()
+                                print(f"✓ Customer {customer_id} viewed recommendation {rec_id}")
+                except json.JSONDecodeError as e:
+                    print(f"⚠️  Customer {customer_id} sent invalid JSON: {e}")
     
     except Exception as e:
-        print(f"Customer WebSocket error: {e}")
+        print(f"❌ Customer {customer_id} WebSocket error: {e}")
+        import traceback
+        traceback.print_exc()
     finally:
         if customer_id in customer_connections:
             del customer_connections[customer_id]
+        print(f"🔌 Customer {customer_id} WebSocket disconnected")
 
 
 @sock.route('/ws/stream_video')

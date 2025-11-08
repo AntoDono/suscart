@@ -15,6 +15,7 @@ import TopHeader from './components/TopHeader'
 import FadeIn from './components/FadeIn'
 import AdminDashboard from './components/AdminDashboard'
 import InventoryView from './components/InventoryView'
+import CustomerPortal from './components/CustomerPortal'
 import { RiAnthropicFill } from "react-icons/ri"
 
 function App() {
@@ -50,8 +51,14 @@ function App() {
   // User page
   if (currentPage === '#user') {
     return (
-      <div style={{ width: '100vw', height: '100vh', backgroundColor: '#000000' }}>
-        {/* User page content */}
+      <div style={{ 
+        width: '100vw', 
+        minHeight: '100vh', 
+        backgroundColor: '#000000',
+        overflowY: 'auto',
+        overflowX: 'hidden'
+      }}>
+        <CustomerPortal />
       </div>
     );
   }
