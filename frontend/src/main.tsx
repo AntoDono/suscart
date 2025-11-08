@@ -10,7 +10,7 @@ import GradualBlur from './components/GradualBlur'
 import LogoLoop from './components/LogoLoop'
 import AdminLogin from './components/AdminLogin'
 import CustomerLogin from './components/CustomerLogin'
-import BottomAscii from './components/BottomAscii'
+import CenterAscii from './components/CenterAscii'
 import TopHeader from './components/TopHeader'
 import FadeIn from './components/FadeIn'
 import AdminDashboard from './components/AdminDashboard'
@@ -211,8 +211,8 @@ function App() {
       {/* Top Header */}
       <TopHeader />
 
-      {/* Bottom ASCII Art */}
-      <BottomAscii />
+      {/* Center ASCII Art */}
+      <CenterAscii />
 
       {/* Made With - Above Logo Loop */}
       <div style={{

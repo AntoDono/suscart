@@ -5,6 +5,9 @@ import './TopHeader.css';
 const TopHeader = () => {
   return (
     <div className="top-header-container">
+      <span className="header-spacer">·</span>
+      <span className="header-spacer">✦</span>
+
       <a
         href="https://github.com"
         target="_blank"
@@ -14,9 +17,17 @@ const TopHeader = () => {
         <FaGithub />
       </a>
 
+      <span className="header-spacer">✦</span>
+      <span className="header-spacer">·</span>
+      <span className="header-spacer">✦</span>
+
       <div className="mlh-logo">
         <img src="/mlh.png" alt="MLH" />
       </div>
+
+      <span className="header-spacer">✦</span>
+      <span className="header-spacer">·</span>
+      <span className="header-spacer">✦</span>
 
       <a
         href="https://devpost.com"
@@ -26,6 +37,9 @@ const TopHeader = () => {
       >
         <SiDevpost />
       </a>
+
+      <span className="header-spacer">✦</span>
+      <span className="header-spacer">·</span>
     </div>
   );
 };
