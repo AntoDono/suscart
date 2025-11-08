@@ -682,10 +682,51 @@ const CustomerPortalContent = () => {
 
   return (
     <div className="customer-portal">
+      {/* FaultyTerminal Background */}
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        zIndex: 0,
+        pointerEvents: 'none'
+      }}>
+        <FaultyTerminal
+          scale={2.3}
+          gridMul={[1, 1]}
+          digitSize={1.8}
+          timeScale={1.8}
+          pause={false}
+          scanlineIntensity={0.7}
+          glitchAmount={1}
+          flickerAmount={1}
+          noiseAmp={1}
+          chromaticAberration={0}
+          dither={0}
+          curvature={0.2}
+          tint="#7ECA9C"
+          mouseReact={false}
+          mouseStrength={0}
+          pageLoadAnimation={false}
+          brightness={0.2}
+        />
+        {/* Fade to black gradient */}
+        <div style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          width: '100%',
+          height: '50%',
+          background: 'linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.5) 50%, #000000 100%)',
+          pointerEvents: 'none'
+        }} />
+      </div>
+
       {/* Header */}
       <header className="portal-header">
         <div className="header-content">
-          <h1>SusCart</h1>
+          <h1>edgecart</h1>
           <div className="header-actions">
             <div className="connection-status">
               <span className={`status-dot ${isConnected ? 'connected' : 'disconnected'}`}></span>

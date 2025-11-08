@@ -1,13 +1,14 @@
 .customer-portal {
   width: 100%;
   min-height: 100vh;
-  background: linear-gradient(135deg, #0a0f0a 0%, #1a2f1a 100%);
+  background: #000000;
   color: #e0e0e0;
   font-family: 'Geist Mono', monospace;
   overflow-x: hidden;
   overflow-y: auto;
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE and Edge */
+  position: relative;
 }
 
 .customer-portal::-webkit-scrollbar {
@@ -201,13 +202,14 @@
 
 /* Portal Header */
 .portal-header {
-  background: rgba(20, 30, 20, 0.95);
-  border-bottom: 1px solid #2a4a2a;
+  background: rgba(16, 17, 17, 0.4);
+  border-bottom: 1px solid rgba(126, 202, 156, 0.2);
   padding: 1rem 2rem;
   position: sticky;
   top: 0;
   z-index: 100;
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 
 .header-content {
@@ -225,6 +227,9 @@
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  text-transform: lowercase;
+  font-weight: 400;
+  letter-spacing: 0.05em;
 }
 
 .header-actions {
@@ -285,6 +290,8 @@
   max-width: 1400px;
   margin: 0 auto;
   padding: 2rem;
+  position: relative;
+  z-index: 1;
 }
 
 .customer-info-section {
@@ -295,8 +302,10 @@
 }
 
 .info-card {
-  background: rgba(20, 30, 20, 0.6);
-  border: 1px solid #2a4a2a;
+  background: rgba(16, 17, 17, 0.6);
+  border: 1px solid rgba(126, 202, 156, 0.2);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border-radius: 12px;
   padding: 1.5rem;
 }
@@ -409,10 +418,12 @@
 .empty-state {
   text-align: center;
   padding: 3rem 2rem;
-  background: rgba(20, 30, 20, 0.4);
-  border: 1px dashed #2a4a2a;
+  background: rgba(16, 17, 17, 0.4);
+  border: 1px dashed rgba(126, 202, 156, 0.3);
   border-radius: 12px;
   color: #a0a0a0;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .empty-state .hint {
@@ -427,13 +438,15 @@
 }
 
 .recommendation-card {
-  background: rgba(20, 30, 20, 0.8);
-  border: 1px solid #2a4a2a;
+  background: rgba(16, 17, 17, 0.7);
+  border: 1px solid rgba(126, 202, 156, 0.2);
   border-radius: 12px;
   padding: 1.5rem;
   position: relative;
   cursor: pointer;
   transition: all 0.3s;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 
 .recommendation-card:hover {
@@ -649,10 +662,12 @@
 .transaction-toggle {
   display: flex;
   gap: 0.5rem;
-  background: rgba(20, 30, 20, 0.6);
+  background: rgba(16, 17, 17, 0.5);
   padding: 0.25rem;
   border-radius: 8px;
-  border: 1px solid #2a4a2a;
+  border: 1px solid rgba(126, 202, 156, 0.2);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .toggle-btn {
@@ -718,12 +733,14 @@
 }
 
 .transaction-card {
-  background: rgba(20, 30, 20, 0.8);
-  border: 1px solid #2a4a2a;
+  background: rgba(16, 17, 17, 0.7);
+  border: 1px solid rgba(126, 202, 156, 0.2);
   border-radius: 10px;
   padding: 1.25rem;
   margin-bottom: 1rem;
   transition: all 0.2s;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 
 .transaction-card:hover {
