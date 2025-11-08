@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Test Client</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .ws-section {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .ws-section h2 {
+            color: #444;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+        
+        button.connect {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        button.connect:hover {
+            background: #45a049;
+        }
+        
+        button.disconnect {
+            background: #f44336;
+            color: white;
+        }
+        
+        button.disconnect:hover {
+            background: #da190b;
+        }
+        
+        button.send {
+            background: #2196F3;
+            color: white;
+        }
+        
+        button.send:hover {
+            background: #0b7dda;
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        input[type="text"] {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            min-width: 200px;
+        }
+        
+        .status {
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 13px;
+            margin-bottom: 10px;
+        }
+        
+        .status.connected {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .messages {
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+        
+        .message {
+            margin-bottom: 8px;
+            padding: 5px;
+            border-radius: 3px;
+        }
+        
+        .message.received {
+            background: #e3f2fd;
+        }
+        
+        .message.sent {
+            background: #f3e5f5;
+        }
+        
+        .message.system {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .message .timestamp {
+            color: #666;
+            font-size: 11px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔌 WebSocket Test Client</h1>
+        
+        <!-- Echo WebSocket -->
+        <div class="ws-section">
+            <h2>Echo WebSocket (ws://localhost:5000/ws/echo)</h2>
+            <div id="echoStatus" class="status disconnected">Disconnected</div>
+            <div class="controls">
+                <button class="connect" onclick="connectEcho()">Connect</button>
+                <button class="disconnect" onclick="disconnectEcho()" disabled id="echoDisconnect">Disconnect</button>
+                <input type="text" id="echoInput" placeholder="Type a message..." disabled>
+                <button class="send" onclick="sendEcho()" disabled id="echoSend">Send</button>
+            </div>
+            <div id="echoMessages" class="messages"></div>
+        </div>
+        
+        <!-- Chat WebSocket -->
+        <div class="ws-section">
+            <h2>Chat WebSocket (ws://localhost:5000/ws/chat)</h2>
+            <div id="chatStatus" class="status disconnected">Disconnected</div>
+            <div class="controls">
+                <button class="connect" onclick="connectChat()">Connect</button>
+                <button class="disconnect" onclick="disconnectChat()" disabled id="chatDisconnect">Disconnect</button>
+                <input type="text" id="chatUsername" placeholder="Your name..." value="User1">
+                <input type="text" id="chatInput" placeholder="Type a message..." disabled>
+                <button class="send" onclick="sendChat()" disabled id="chatSend">Send</button>
+            </div>
+            <div id="chatMessages" class="messages"></div>
+        </div>
+        
+        <!-- Stream WebSocket -->
+        <div class="ws-section">
+            <h2>Stream WebSocket (ws://localhost:5000/ws/stream)</h2>
+            <div id="streamStatus" class="status disconnected">Disconnected</div>
+            <div class="controls">
+                <button class="connect" onclick="connectStream()">Connect</button>
+                <button class="disconnect" onclick="disconnectStream()" disabled id="streamDisconnect">Disconnect</button>
+                <button class="send" onclick="startStream()" disabled id="streamStart">Start Stream</button>
+                <button class="send" onclick="pingStream()" disabled id="streamPing">Ping</button>
+            </div>
+            <div id="streamMessages" class="messages"></div>
+        </div>
+    </div>
+
+    <script>
+        let echoWs = null;
+        let chatWs = null;
+        let streamWs = null;
+
+        // Helper function to add message to display
+        function addMessage(containerId, message, type = 'received') {
+            const container = document.getElementById(containerId);
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            const timestamp = new Date().toLocaleTimeString();
+            messageDiv.innerHTML = `<span class="timestamp">[${timestamp}]</span> ${message}`;
+            container.appendChild(messageDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // Echo WebSocket
+        function connectEcho() {
+            echoWs = new WebSocket('ws://localhost:5000/ws/echo');
+            
+            echoWs.onopen = () => {
+                document.getElementById('echoStatus').className = 'status connected';
+                document.getElementById('echoStatus').textContent = 'Connected';
+                document.getElementById('echoDisconnect').disabled = false;
+                document.getElementById('echoInput').disabled = false;
+                document.getElementById('echoSend').disabled = false;
+                addMessage('echoMessages', 'Connected to echo server', 'system');
+            };
+            
+            echoWs.onmessage = (event) => {
+                addMessage('echoMessages', event.data, 'received');
+            };
+            
+            echoWs.onclose = () => {
+                document.getElementById('echoStatus').className = 'status disconnected';
+                document.getElementById('echoStatus').textContent = 'Disconnected';
+                document.getElementById('echoDisconnect').disabled = true;
+                document.getElementById('echoInput').disabled = true;
+                document.getElementById('echoSend').disabled = true;
+                addMessage('echoMessages', 'Disconnected from echo server', 'system');
+            };
+            
+            echoWs.onerror = (error) => {
+                addMessage('echoMessages', 'Error: ' + error, 'system');
+            };
+        }
+
+        function disconnectEcho() {
+            if (echoWs) {
+                echoWs.close();
+            }
+        }
+
+        function sendEcho() {
+            const input = document.getElementById('echoInput');
+            if (input.value && echoWs && echoWs.readyState === WebSocket.OPEN) {
+                echoWs.send(input.value);
+                addMessage('echoMessages', input.value, 'sent');
+                input.value = '';
+            }
+        }
+
+        // Chat WebSocket
+        function connectChat() {
+            chatWs = new WebSocket('ws://localhost:5000/ws/chat');
+            
+            chatWs.onopen = () => {
+                document.getElementById('chatStatus').className = 'status connected';
+                document.getElementById('chatStatus').textContent = 'Connected';
+                document.getElementById('chatDisconnect').disabled = false;
+                document.getElementById('chatInput').disabled = false;
+                document.getElementById('chatSend').disabled = false;
+            };
+            
+            chatWs.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.type === 'system') {
+                    addMessage('chatMessages', `${data.message} (${data.connections} connections)`, 'system');
+                } else if (data.type === 'message') {
+                    addMessage('chatMessages', `<strong>${data.sender}:</strong> ${data.content}`, 'received');
+                }
+            };
+            
+            chatWs.onclose = () => {
+                document.getElementById('chatStatus').className = 'status disconnected';
+                document.getElementById('chatStatus').textContent = 'Disconnected';
+                document.getElementById('chatDisconnect').disabled = true;
+                document.getElementById('chatInput').disabled = true;
+                document.getElementById('chatSend').disabled = true;
+                addMessage('chatMessages', 'Disconnected from chat server', 'system');
+            };
+        }
+
+        function disconnectChat() {
+            if (chatWs) {
+                chatWs.close();
+            }
+        }
+
+        function sendChat() {
+            const input = document.getElementById('chatInput');
+            const username = document.getElementById('chatUsername').value || 'Anonymous';
+            if (input.value && chatWs && chatWs.readyState === WebSocket.OPEN) {
+                const message = {
+                    sender: username,
+                    content: input.value,
+                    timestamp: new Date().toISOString()
+                };
+                chatWs.send(JSON.stringify(message));
+                input.value = '';
+            }
+        }
+
+        // Stream WebSocket
+        function connectStream() {
+            streamWs = new WebSocket('ws://localhost:5000/ws/stream');
+            
+            streamWs.onopen = () => {
+                document.getElementById('streamStatus').className = 'status connected';
+                document.getElementById('streamStatus').textContent = 'Connected';
+                document.getElementById('streamDisconnect').disabled = false;
+                document.getElementById('streamStart').disabled = false;
+                document.getElementById('streamPing').disabled = false;
+                addMessage('streamMessages', 'Connected to stream server', 'system');
+            };
+            
+            streamWs.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.type === 'data') {
+                    addMessage('streamMessages', `Data: counter=${data.counter}, value=${data.value}`, 'received');
+                } else if (data.type === 'complete') {
+                    addMessage('streamMessages', data.message, 'system');
+                } else if (data.type === 'pong') {
+                    addMessage('streamMessages', 'Pong received!', 'system');
+                }
+            };
+            
+            streamWs.onclose = () => {
+                document.getElementById('streamStatus').className = 'status disconnected';
+                document.getElementById('streamStatus').textContent = 'Disconnected';
+                document.getElementById('streamDisconnect').disabled = true;
+                document.getElementById('streamStart').disabled = true;
+                document.getElementById('streamPing').disabled = true;
+                addMessage('streamMessages', 'Disconnected from stream server', 'system');
+            };
+        }
+
+        function disconnectStream() {
+            if (streamWs) {
+                streamWs.close();
+            }
+        }
+
+        function startStream() {
+            if (streamWs && streamWs.readyState === WebSocket.OPEN) {
+                streamWs.send('start');
+                addMessage('streamMessages', 'Stream started...', 'sent');
+            }
+        }
+
+        function pingStream() {
+            if (streamWs && streamWs.readyState === WebSocket.OPEN) {
+                streamWs.send('ping');
+                addMessage('streamMessages', 'Ping sent', 'sent');
+            }
+        }
+
+        // Enable sending messages with Enter key
+        document.getElementById('echoInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendEcho();
+        });
+        
+        document.getElementById('chatInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendChat();
+        });
+    </script>
+</body>
+</html>
+
