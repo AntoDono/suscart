@@ -4,17 +4,27 @@ import './App.css'
 import Experience from './Experience'
 import { Canvas } from '@react-three/fiber'
 import { EffectComposer, Bloom } from '@react-three/postprocessing'
-import Aurora from './components/Aurora'
+import Balatro from './components/Balatro'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <div style={{ width: '100vw', height: '100vh', position: 'fixed', top: 0, left: 0, backgroundColor: '#000000' }}>
-      <Aurora
-        colorStops={['#7ECA9C', '#CCFFBD', '#AAF0D1']}
-        amplitude={1.2}
-        blend={0.6}
-        speed={0.3}
-      />
+      <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0 }}>
+        <Balatro
+          isRotate={false}
+          mouseInteraction={true}
+          pixelFilter={6969}
+          color1="#000000"
+          color2="#2a382aff"
+          color3="#0d0d0dff"
+          spinRotation={-2.0}
+          spinSpeed={7.0}
+          contrast={1.5}
+          lighting={0.4}
+          spinAmount={0.25}
+          spinEase={1.0}
+        />
+      </div>
       <div style={{
         position: 'fixed',
         top: '50%',
@@ -46,7 +56,7 @@ createRoot(document.getElementById('root')!).render(
         CART
       </div>
       <Canvas
-        style={{ position: 'relative', zIndex: 1 }}
+        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1 }}
         gl={{
           antialias: true,
           toneMapping: 3, // ACESFilmicToneMapping
