@@ -585,8 +585,9 @@
 
 .original-price {
   font-size: 1.2rem;
-  color: #808080;
+  color: #ef4444;
   text-decoration: line-through;
+  opacity: 0.8;
 }
 
 .discount-badge {

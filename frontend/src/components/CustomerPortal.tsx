@@ -9,6 +9,7 @@ import FaultyTerminal from './FaultyTerminal';
 import GradientText from './GradientText';
 import './CustomerPortal.css';
 import { config } from '../config';
+import { mockCustomers, mockRecommendations, mockPurchases, mockKnotTransactions } from '../mockData';
 
 // Error Boundary Component
 class ErrorBoundary extends Component<
@@ -176,7 +177,23 @@ const CustomerPortalContent = () => {
   // Load customer from localStorage on mount
   useEffect(() => {
     const savedCustomerId = localStorage.getItem('edgecart_customer_id');
-    if (savedCustomerId) {
+    const demoUser = localStorage.getItem('edgecart_demo_user');
+
+    if (savedCustomerId && demoUser) {
+      // Load demo user from mock data
+      const id = parseInt(savedCustomerId);
+      const mockCustomer = mockCustomers[demoUser as keyof typeof mockCustomers];
+
+      if (mockCustomer) {
+        setCustomerId(id);
+        setCustomer(mockCustomer);
+        setRecommendations(mockRecommendations[demoUser as keyof typeof mockRecommendations] || []);
+        setPurchases(mockPurchases[demoUser as keyof typeof mockPurchases] || []);
+        setKnotTransactions(mockKnotTransactions[demoUser as keyof typeof mockKnotTransactions] || []);
+        console.log('Loaded demo user from localStorage:', demoUser);
+      }
+    } else if (savedCustomerId) {
+      // Load real user from backend
       const id = parseInt(savedCustomerId);
       setCustomerId(id);
       loadCustomerData(id);
@@ -283,6 +300,14 @@ const CustomerPortalContent = () => {
   };
 
   const connectWebSocket = (id: number) => {
+    // Skip WebSocket for demo users
+    const demoUser = localStorage.getItem('edgecart_demo_user');
+    if (demoUser) {
+      console.log('Demo user - skipping WebSocket connection');
+      setIsConnected(false);
+      return;
+    }
+
     if (wsRef.current) {
       try {
         wsRef.current.close();
@@ -292,7 +317,7 @@ const CustomerPortalContent = () => {
     }
 
     console.log(`Connecting to WebSocket for customer ${id}...`);
-    
+
     try {
       const ws = new WebSocket(`${config.wsUrl}/ws/customer/${id}`);
       wsRef.current = ws;
@@ -315,7 +340,7 @@ const CustomerPortalContent = () => {
       ws.onclose = (event) => {
         setIsConnected(false);
         console.log('🔌 Disconnected from customer WebSocket', event.code, event.reason);
-        
+
         // Attempt to reconnect after 3 seconds if it wasn't a normal closure
         if (event.code !== 1000 && event.code !== 1001) {
           console.log('Will attempt to reconnect in 3 seconds...');
@@ -413,6 +438,34 @@ const CustomerPortalContent = () => {
     }
 
     setSyncLoading(true);
+
+    // Check if this is a demo account
+    const isDemoAccount = knotUserId in mockCustomers;
+
+    if (isDemoAccount) {
+      // Use mock data for demo accounts
+      console.log('Using mock data for demo account:', knotUserId);
+      const mockCustomer = mockCustomers[knotUserId as keyof typeof mockCustomers];
+
+      setTimeout(() => {
+        createFadeTransition(() => {
+          // Save customer ID and demo flag
+          setCustomerId(mockCustomer.id);
+          localStorage.setItem('edgecart_customer_id', mockCustomer.id.toString());
+          localStorage.setItem('edgecart_demo_user', knotUserId);
+
+          // Load mock customer data
+          setCustomer(mockCustomer);
+          setRecommendations(mockRecommendations[knotUserId as keyof typeof mockRecommendations] || []);
+          setPurchases(mockPurchases[knotUserId as keyof typeof mockPurchases] || []);
+          setKnotTransactions(mockKnotTransactions[knotUserId as keyof typeof mockKnotTransactions] || []);
+        });
+        setSyncLoading(false);
+      }, 500); // Small delay for UX
+      return;
+    }
+
+    // Try backend for non-demo accounts
     try {
       const response = await fetch(`${config.apiUrl}/api/knot/sync/${knotUserId}`, {
         method: 'POST',
@@ -432,6 +485,7 @@ const CustomerPortalContent = () => {
           // Save customer ID
           setCustomerId(newCustomerId);
           localStorage.setItem('edgecart_customer_id', newCustomerId.toString());
+          localStorage.removeItem('edgecart_demo_user');
 
           // Load customer data
           loadCustomerData(newCustomerId);
@@ -445,7 +499,7 @@ const CustomerPortalContent = () => {
       }
     } catch (error) {
       console.error('Error syncing from Knot:', error);
-      alert('Failed to connect to backend');
+      alert('Failed to connect to backend. Try using demo accounts: abc, def, or ghi');
     } finally {
       setSyncLoading(false);
     }
@@ -456,7 +510,10 @@ const CustomerPortalContent = () => {
     setCustomer(null);
     setRecommendations([]);
     setNotifications([]);
+    setPurchases([]);
+    setKnotTransactions([]);
     localStorage.removeItem('edgecart_customer_id');
+    localStorage.removeItem('edgecart_demo_user');
     if (wsRef.current) {
       wsRef.current.close();
     }
