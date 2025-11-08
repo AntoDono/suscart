@@ -6,7 +6,7 @@ interface Detection {
   bbox: [number, number, number, number];
   class: string;
   confidence: number;
-  ripe_score?: number | null;
+  freshness_score?: number | null;
 }
 
 interface FrameMeta {
@@ -44,9 +44,9 @@ const DetectionCard = ({ detection }: DetectionCardProps) => {
           <div className="detection-confidence">
             {(detection.confidence * 100).toFixed(1)}%
           </div>
-          {detection.ripe_score !== null && detection.ripe_score !== undefined && (
-            <div className="detection-ripe">
-              Ripe: {detection.ripe_score.toFixed(1)}%
+          {detection.freshness_score !== null && detection.freshness_score !== undefined && (
+            <div className="detection-fresh">
+              Fresh: {detection.freshness_score.toFixed(1)}%
             </div>
           )}
         </div>
@@ -165,7 +165,7 @@ const AdminDashboard = () => {
   const [detectionCount, setDetectionCount] = useState(0);
   const [detections, setDetections] = useState<DetectionWithImage[]>([]);
   const [classCounts, setClassCounts] = useState<Record<string, number>>({});
-  const [ripeModelLoaded, setRipeModelLoaded] = useState(false);
+  const [freshModelLoaded, setFreshModelLoaded] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
 
@@ -181,7 +181,7 @@ const AdminDashboard = () => {
 
   const handleTextMessage = (data: any) => {
     if (data.type === 'connected') {
-      setRipeModelLoaded(data.ripe_model_loaded || false);
+      setFreshModelLoaded(data.fresh_model_loaded || false);
       setConnectionError(null); // Clear any previous errors on successful connection
     } else if (data.type === 'started') {
       setIsStreaming(true);
@@ -460,7 +460,7 @@ const AdminDashboard = () => {
           <span className={`status-badge ${isStreaming ? 'streaming' : 'idle'}`}>
             {isStreaming ? 'STREAMING' : 'IDLE'}
           </span>
-          {ripeModelLoaded && (
+          {freshModelLoaded && (
             <span className="status-badge model-loaded">MODEL LOADED</span>
           )}
         </div>

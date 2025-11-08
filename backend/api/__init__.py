@@ -28,7 +28,7 @@ except ImportError:
 
 # Import detection functions
 from detect_fruits import (
-    load_ripe_detection_model,
+    load_fresh_detection_model,
 )
 
 
@@ -48,22 +48,22 @@ def create_app():
     # Initialize Knot API client
     knot_client = get_knot_client()
     
-    # Load ripe detection model globally (once at startup)
-    ripe_model = None
-    ripe_device = None
-    ripe_transform = None
+    # Load fresh detection model globally (once at startup)
+    fresh_model = None
+    fresh_device = None
+    fresh_transform = None
     try:
-        ripe_model, ripe_device, ripe_transform = load_ripe_detection_model("./model/ripe_detector.pth")
-        print("✅ Ripe detection model loaded successfully")
+        fresh_model, fresh_device, fresh_transform = load_fresh_detection_model("./model/fresh_detector.pth")
+        print("✅ Fresh detection model loaded successfully")
     except Exception as e:
-        print(f"⚠️ Warning: Could not load ripe detection model: {e}")
-        print("   Video stream will work but without ripe detection")
+        print(f"⚠️ Warning: Could not load fresh detection model: {e}")
+        print("   Video stream will work but without fresh detection")
     
     # Store app-level variables
     app.knot_client = knot_client
-    app.ripe_model = ripe_model
-    app.ripe_device = ripe_device
-    app.ripe_transform = ripe_transform
+    app.fresh_model = fresh_model
+    app.fresh_device = fresh_device
+    app.fresh_transform = fresh_transform
     
     return app, sock
 
