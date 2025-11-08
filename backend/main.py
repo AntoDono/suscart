@@ -97,8 +97,12 @@ from utils.helpers import (
     notify_customer,
     notify_quantity_change,
     update_freshness_for_item,
-    generate_recommendations_for_item
+    generate_recommendations_for_item,
+    set_app_instance
 )
+
+# Set app instance for threading in helpers
+set_app_instance(app)
 
 # ============ Import Route Modules ============
 from api.routes import register_basic_routes
@@ -870,9 +874,11 @@ def stream_video_websocket(ws):
                         # So we need to divide by 100 to convert back to 0-1.0 scale
                         freshness_updates = {}  # {fruit_type: average_freshness_score}
                         for fruit_type, ripe_scores in ripe_scores_by_type.items():
-                            if ripe_scores:
+                            # Filter out None values and ensure we have scores
+                            valid_scores = [score for score in ripe_scores if score is not None]
+                            if valid_scores and len(valid_scores) > 0:
                                 # ripe_scores are 0-100 from get_ripe_percentage, convert to 0-1.0
-                                avg_freshness = (sum(ripe_scores) / len(ripe_scores)) / 100.0
+                                avg_freshness = (sum(valid_scores) / len(valid_scores)) / 100.0
                                 freshness_updates[fruit_type] = round(avg_freshness, 4)
                         
                         # Compare with previous counts and update database

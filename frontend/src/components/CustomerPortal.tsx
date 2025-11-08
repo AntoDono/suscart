@@ -96,6 +96,8 @@ interface Recommendation {
     discount?: number;
     price?: number;
     original_price?: number;
+    reasoning?: string;
+    ai_reason?: string;
   };
 }
 
@@ -381,8 +383,6 @@ const CustomerPortalContent = () => {
         
         // Connect WebSocket
         connectWebSocket(newCustomerId);
-        
-        alert(`Synced from Knot! Found ${data.transaction_count || 0} transactions`);
       } else {
         const error = await response.json();
         alert(`Error: ${error.error || 'Failed to sync from Knot'}`);
@@ -636,10 +636,18 @@ const CustomerPortalContent = () => {
                   )}
 
                   <div className="rec-reason">
-                    {rec.reason?.match_type === 'favorite_fruit' && (
+                    {rec.reason?.reasoning && (
+                      <p className="reasoning-text">{rec.reason.reasoning}</p>
+                    )}
+                    {!rec.reason?.reasoning && rec.reason?.match_type === 'favorite_fruit' && (
                       <p>Recommended because you love {rec.reason.fruit}!</p>
                     )}
-                    <p className="from-knot">Based on your purchase history</p>
+                    {rec.reason?.match_type === 'ai_recommendation' && (
+                      <p className="from-knot">AI-powered recommendation</p>
+                    )}
+                    {rec.reason?.match_type === 'favorite_fruit' && (
+                      <p className="from-knot">Based on your purchase history</p>
+                    )}
                   </div>
 
                   <div className="rec-details">
@@ -710,42 +718,50 @@ const CustomerPortalContent = () => {
                 </div>
               ) : (
                 <div className="scrollable-transactions">
-                  {knotTransactions.map((transaction) => (
-                    <div key={transaction.id} className="transaction-card knot-transaction">
+                  {knotTransactions.map((transaction, idx) => (
+                    <div key={transaction.id || `knot-tx-${idx}`} className="transaction-card knot-transaction">
                       <div className="transaction-header">
                         <div className="transaction-info">
-                          <span className="transaction-id">Order #{transaction.external_id?.substring(0, 8) || transaction.id.substring(0, 8)}</span>
+                          <span className="transaction-id">Order #{transaction.external_id?.substring(0, 8) || transaction.id?.substring(0, 8) || `TX-${idx + 1}`}</span>
                           <span className="transaction-date">
-                            {new Date(transaction.datetime).toLocaleDateString()}
+                            {transaction.datetime ? new Date(transaction.datetime).toLocaleDateString() : 'N/A'}
                           </span>
                         </div>
                         <div className="transaction-total">
-                          ${parseFloat(transaction.price.total).toFixed(2)}
+                          ${transaction.price?.total ? parseFloat(transaction.price.total).toFixed(2) : '0.00'}
                         </div>
                       </div>
 
                       <div className="transaction-status">
-                        <span className={`status-badge ${transaction.order_status.toLowerCase()}`}>
-                          {transaction.order_status}
+                        <span className={`status-badge ${transaction.order_status?.toLowerCase() || 'unknown'}`}>
+                          {transaction.order_status || 'Unknown'}
                         </span>
-                        <a href={transaction.url} target="_blank" rel="noopener noreferrer" className="order-link">
-                          View Order →
-                        </a>
+                        {transaction.url && (
+                          <a href={transaction.url} target="_blank" rel="noopener noreferrer" className="order-link">
+                            View Order →
+                          </a>
+                        )}
                       </div>
 
                       <div className="transaction-products">
-                        {transaction.products.slice(0, 3).map((product, idx) => (
-                          <div key={idx} className="product-item">
-                            <span className="product-name">{product.name}</span>
-                            <span className="product-details">
-                              {product.quantity}x ${parseFloat(product.price.unit_price).toFixed(2)}
-                            </span>
-                          </div>
-                        ))}
-                        {transaction.products.length > 3 && (
-                          <div className="more-products">
-                            +{transaction.products.length - 3} more items
-                          </div>
+                        {transaction.products && transaction.products.length > 0 ? (
+                          <>
+                            {transaction.products.slice(0, 3).map((product, pIdx) => (
+                              <div key={pIdx} className="product-item">
+                                <span className="product-name">{product.name || 'Unknown Product'}</span>
+                                <span className="product-details">
+                                  {product.quantity || 0}x ${product.price?.unit_price ? parseFloat(product.price.unit_price).toFixed(2) : '0.00'}
+                                </span>
+                              </div>
+                            ))}
+                            {transaction.products.length > 3 && (
+                              <div className="more-products">
+                                +{transaction.products.length - 3} more items
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <div className="product-item">No products listed</div>
                         )}
                       </div>
 
