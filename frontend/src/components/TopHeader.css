@@ -47,3 +47,9 @@
 .header-icon-right {
   /* Additional styles for right icon if needed */
 }
+
+.header-spacer {
+  color: #F5FFFA;
+  font-size: 1rem;
+  font-family: "Geist Mono", monospace;
+}

@@ -1,0 +1,37 @@
+.center-ascii-container {
+  position: fixed;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 999;
+  pointer-events: none;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 2rem;
+}
+
+.center-ascii-art {
+  font-family: monospace;
+  font-size: 4px;
+  line-height: 4px;
+  color: #ffffff;
+  margin: 0;
+  opacity: 0.8;
+  white-space: pre;
+}
+
+.star-pattern {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  font-family: "Geist Mono", monospace;
+  color: #F5FFFA;
+  opacity: 1;
+}
+
+.star-spacer {
+  color: #F5FFFA;
+  font-size: 1rem;
+  font-family: "Geist Mono", monospace;
+}

@@ -10,11 +10,12 @@ import GradualBlur from './components/GradualBlur'
 import LogoLoop from './components/LogoLoop'
 import AdminLogin from './components/AdminLogin'
 import CustomerLogin from './components/CustomerLogin'
-import BottomAscii from './components/BottomAscii'
+import CenterAscii from './components/CenterAscii'
 import TopHeader from './components/TopHeader'
 import FadeIn from './components/FadeIn'
 import AdminDashboard from './components/AdminDashboard'
 import InventoryView from './components/InventoryView'
+import CustomerPortal from './components/CustomerPortal'
 import { RiAnthropicFill } from "react-icons/ri"
 
 function App() {
@@ -50,8 +51,14 @@ function App() {
   // User page
   if (currentPage === '#user') {
     return (
-      <div style={{ width: '100vw', height: '100vh', backgroundColor: '#000000' }}>
-        {/* User page content */}
+      <div style={{ 
+        width: '100vw', 
+        minHeight: '100vh', 
+        backgroundColor: '#000000',
+        overflowY: 'auto',
+        overflowX: 'hidden'
+      }}>
+        <CustomerPortal />
       </div>
     );
   }
@@ -221,8 +228,8 @@ function App() {
       {/* Top Header */}
       <TopHeader />
 
-      {/* Bottom ASCII Art */}
-      <BottomAscii />
+      {/* Center ASCII Art */}
+      <CenterAscii />
 
       {/* Made With - Above Logo Loop */}
       <div style={{
