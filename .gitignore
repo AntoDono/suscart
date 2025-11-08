@@ -6,7 +6,11 @@ fresh-*-classification.zip
 *.pyc
 .env
 *.db
-.DS_Store
-/node_modules
-/frontend/node_modules
-node_modules
+
+# Node.js
+node_modules/
+**/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+# Note: package-lock.json, yarn.lock, pnpm-lock.yaml are typically tracked
