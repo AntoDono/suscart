@@ -6,8 +6,9 @@ import json
 import os
 import cv2
 import numpy as np
-from datetime import datetime
+from datetime import datetime, timedelta
 import random
+import threading
 
 # Load environment variables
 load_dotenv()
@@ -117,6 +118,73 @@ def notify_customer(customer_id, event_type, data):
             }))
         except Exception:
             del customer_connections[customer_id]
+
+
+def update_freshness_from_camera(inventory_id, ripe_score, confidence):
+    """
+    Update freshness status from camera detection (async)
+    Called automatically when camera detects ripeness
+    """
+    try:
+        with app.app_context():
+            # Get or create freshness status
+            freshness = FreshnessStatus.query.filter_by(inventory_id=inventory_id).first()
+            
+            if not freshness:
+                freshness = FreshnessStatus(inventory_id=inventory_id)
+                db.session.add(freshness)
+            
+            # Update freshness data
+            freshness.freshness_score = ripe_score
+            freshness.confidence_level = confidence
+            freshness.last_checked = datetime.utcnow()
+            
+            # Predict expiry based on ripeness (simple heuristic)
+            # Higher ripeness = closer to expiry
+            days_until_expiry = int((ripe_score / 100) * 10)  # 0-10 days
+            freshness.predicted_expiry_date = datetime.utcnow() + timedelta(days=days_until_expiry)
+            
+            # Calculate discount and status
+            old_discount = freshness.discount_percentage
+            freshness.discount_percentage = freshness.calculate_discount()
+            freshness.update_status()
+            
+            # Update inventory price if discount changed
+            inventory = FruitInventory.query.get(inventory_id)
+            if inventory and freshness.discount_percentage != old_discount:
+                inventory.current_price = round(
+                    inventory.original_price * (1 - freshness.discount_percentage / 100),
+                    2
+                )
+                inventory.updated_at = datetime.utcnow()
+            
+            db.session.commit()
+            
+            # Broadcast update to admin dashboard
+            broadcast_to_admins('freshness_updated', {
+                'inventory_id': inventory_id,
+                'freshness': freshness.to_dict(),
+                'item': inventory.to_dict() if inventory else None,
+                'source': 'camera'
+            })
+            
+            # Send alert if critical
+            if freshness.status == 'critical':
+                broadcast_to_admins('freshness_alert', {
+                    'message': f'Camera detected critical ripeness: {inventory.fruit_type}' if inventory else 'Critical item detected',
+                    'inventory_id': inventory_id,
+                    'freshness_score': freshness.freshness_score
+                })
+            
+            # Trigger recommendations if discount changed and significant
+            if freshness.discount_percentage > old_discount and freshness.discount_percentage >= 20:
+                print(f"🎯 Triggering recommendations for item {inventory_id} (discount: {freshness.discount_percentage}%)")
+                generate_recommendations_for_item(inventory_id)
+    
+    except Exception as e:
+        print(f"❌ Error updating freshness from camera: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 def notify_quantity_change(item, old_quantity, new_quantity):
@@ -1011,6 +1079,17 @@ def stream_video_websocket(ws):
                                 cropped = crop_bounding_box(frame, bbox)
                                 if cropped is not None:
                                     ripe_score = get_ripe_percentage(cropped, ripe_model, ripe_device, ripe_transform)
+                                    
+                                    # 🎯 INTEGRATION: Update freshness in database automatically!
+                                    # Check if this fruit is in our inventory
+                                    if class_name in inventory_cache and ripe_score is not None:
+                                        item_id, _ = inventory_cache[class_name]
+                                        # Update freshness asynchronously to not block video stream
+                                        threading.Thread(
+                                            target=update_freshness_from_camera,
+                                            args=(item_id, ripe_score, confidence),
+                                            daemon=True
+                                        ).start()
                             
                             processed_detections.append({
                                 'bbox': bbox,  # [x1, y1, x2, y2]
