@@ -1,0 +1,194 @@
+.customer-login {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  padding: 0.5rem 1.25rem 1rem 1.25rem;
+  gap: 1rem;
+}
+
+.customer-title {
+  margin: 0 0 4px 0;
+  text-align: right;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.customer-title .animated-gradient-text {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  border-radius: 0 !important;
+  backdrop-filter: none !important;
+  background: transparent !important;
+  margin: 0 !important;
+  margin-left: auto !important;
+}
+
+/* Camera Feed */
+.customer-login .camera-feed {
+  flex: 0 0 240px;
+  background: #000000;
+  border-radius: 8px;
+  border: 1px solid rgba(170, 240, 209, 0.15);
+  overflow: hidden;
+  position: relative;
+}
+
+.customer-login .camera-feed-content {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Terminal */
+.customer-login .terminal {
+  flex: 1 1 auto;
+  background: #101111;
+  border-radius: 8px;
+  border: 1px solid rgba(170, 240, 209, 0.15);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  font-family: 'Geist Mono', monospace;
+  min-height: 180px;
+}
+
+.customer-login .terminal-header {
+  background: #1a1f1a;
+  padding: 0.6rem 1rem;
+  display: flex;
+  align-items: center;
+  flex-direction: row-reverse;
+  gap: 0.75rem;
+  border-bottom: 1px solid rgba(170, 240, 209, 0.1);
+}
+
+.customer-login .terminal-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.customer-login .terminal-button {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.customer-login .terminal-button.close {
+  background: #7ECA9C;
+}
+
+.customer-login .terminal-button.minimize {
+  background: #AAF0D1;
+}
+
+.customer-login .terminal-button.maximize {
+  background: #CCFFBD;
+}
+
+.customer-login .terminal-title {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+  letter-spacing: 0.05em;
+}
+
+.customer-login .terminal-body {
+  flex: 1;
+  padding: 1rem;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.customer-login .terminal-line {
+  font-size: 0.75rem;
+  color: #CCFFBD;
+  margin-bottom: 0.4rem;
+  display: flex;
+  gap: 0.5rem;
+  opacity: 0;
+  animation: fadeIn 0.3s ease-in forwards;
+}
+
+.customer-login .terminal-timestamp {
+  color: #AAF0D1;
+  opacity: 0.7;
+}
+
+.customer-login .terminal-text {
+  color: #CCFFBD;
+  flex: 1;
+}
+
+.customer-login .terminal-cursor {
+  color: #CCFFBD;
+  font-size: 0.75rem;
+  margin-top: 0.2rem;
+  animation: blink 1s step-end infinite;
+}
+
+/* Login Button Wrapper */
+.customer-login .login-button-wrapper {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 0.5rem;
+  width: 100%;
+}
+
+.customer-login .login-button-wrapper .aws-btn {
+  width: 100% !important;
+  --button-default-height: 56px !important;
+  --button-default-font-size: 1.05rem !important;
+  --button-horizontal-padding: 2.5rem !important;
+  --button-raise-level: 6px !important;
+  --button-primary-color: #2a382a !important;
+  --button-primary-color-dark: #1a251a !important;
+  --button-primary-color-light: #3a4a3a !important;
+  --button-primary-color-hover: #2a382a !important;
+}
+
+.customer-login .login-button-wrapper .aws-btn .aws-btn__wrapper {
+  font-family: 'Montserrat', sans-serif !important;
+  font-weight: 500 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.2em !important;
+}
+
+.customer-login .login-button-wrapper .aws-btn .aws-btn__content {
+  background: linear-gradient(135deg, #1a2420 0%, #0f1510 100%) !important;
+  border: 1px solid rgba(126, 202, 156, 0.25) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(170, 240, 209, 0.1),
+    0 0 20px rgba(126, 202, 156, 0.15) !important;
+}
+
+.customer-login .login-button-wrapper .aws-btn:hover .aws-btn__content {
+  background: linear-gradient(135deg, #243028 0%, #1a2420 100%) !important;
+  border-color: rgba(170, 240, 209, 0.4) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(170, 240, 209, 0.2),
+    0 0 30px rgba(126, 202, 156, 0.25) !important;
+}
+
+.customer-login .login-button-wrapper .aws-btn:active .aws-btn__content,
+.customer-login .login-button-wrapper .aws-btn.aws-btn--active .aws-btn__content {
+  background: linear-gradient(135deg, #0f1510 0%, #1a2420 100%) !important;
+  border-color: rgba(204, 255, 189, 0.3) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(170, 240, 209, 0.15),
+    0 0 15px rgba(126, 202, 156, 0.2) !important;
+}
+
+.customer-login .login-button-wrapper .aws-btn .animated-gradient-text {
+  font-family: 'Montserrat', sans-serif !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.2em !important;
+}

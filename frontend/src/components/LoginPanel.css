@@ -1,0 +1,132 @@
+/* Login Panel Glass Card */
+.login-panel {
+  --bg-color: rgba(0, 0, 0, 0.25);
+  --highlight: rgba(255, 255, 255, 0.15);
+  --text: #ffffff;
+
+  position: relative;
+  width: 350px;
+  min-height: 500px;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(126, 202, 156, 0.3);
+}
+
+.glass-filter,
+.glass-overlay,
+.glass-specular,
+.glass-distortion-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.glass-filter {
+  z-index: 1;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.glass-distortion-overlay {
+  z-index: 2;
+  background: radial-gradient(circle at 20% 30%, rgba(255,255,255,0.05) 0%, transparent 80%),
+              radial-gradient(circle at 80% 70%, rgba(255,255,255,0.05) 0%, transparent 80%);
+  background-size: 300% 300%;
+  animation: floatDistort 10s infinite ease-in-out;
+  mix-blend-mode: overlay;
+  filter: url(#glass-distortion);
+}
+
+@keyframes floatDistort {
+  0% { background-position: 0% 0%; }
+  50% { background-position: 100% 100%; }
+  100% { background-position: 0% 0%; }
+}
+
+.glass-overlay {
+  z-index: 3;
+  background: var(--bg-color);
+}
+
+.glass-specular {
+  z-index: 4;
+  box-shadow: inset 1px 1px 1px var(--highlight);
+}
+
+.glass-content {
+  position: relative;
+  z-index: 5;
+  padding: 2rem;
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  height: 100%;
+}
+
+.login-panel-title {
+  font-family: "Geist Mono", monospace;
+  font-size: 1.5rem;
+  font-weight: 100;
+  color: var(--text);
+  text-transform: lowercase;
+  margin: 0;
+  text-align: center;
+}
+
+/* Video Container */
+.login-panel-video-container {
+  width: 100%;
+  height: 200px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(126, 202, 156, 0.2);
+}
+
+/* Terminal */
+.login-panel-terminal {
+  width: 100%;
+  height: 150px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.7);
+  border: 1px solid rgba(126, 202, 156, 0.4);
+  overflow: hidden;
+}
+
+.terminal-content {
+  width: 100%;
+  height: 100%;
+  padding: 1rem;
+  font-family: "Geist Mono", monospace;
+  font-size: 0.875rem;
+  font-weight: 100;
+  color: #7ECA9C;
+  overflow-y: auto;
+}
+
+/* Button */
+.login-panel-button {
+  width: 100%;
+  padding: 1rem;
+  background: rgba(126, 202, 156, 0.1);
+  border: 1px solid #7ECA9C;
+  border-radius: 8px;
+  color: #7ECA9C;
+  font-family: "Geist Mono", monospace;
+  font-size: 1rem;
+  font-weight: 100;
+  text-transform: lowercase;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  z-index: 10;
+}
+
+.login-panel-button:hover {
+  background: rgba(126, 202, 156, 0.2);
+  border-color: rgba(126, 202, 156, 0.6);
+  box-shadow: 0 0 20px rgba(126, 202, 156, 0.3);
+  transform: translateY(-2px);
+}
