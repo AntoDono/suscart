@@ -182,7 +182,7 @@ def update_freshness_from_camera(inventory_id, ripe_score, confidence):
                 generate_recommendations_for_item(inventory_id)
     
     except Exception as e:
-        print(f"❌ Error updating freshness from camera: {e}")
+        print(f"Error updating freshness from camera: {e}")
         import traceback
         traceback.print_exc()
 
@@ -778,8 +778,28 @@ def create_knot_session():
     Create a Knot session for transaction linking (required for dev/prod)
     
     POST body: {"external_user_id": "your_user_id"}
+    
+    Returns session data with clientId and environment for SDK initialization
     """
     try:
+        knot_env = os.getenv('KNOT_ENV', 'tunnel')
+        client_id = os.getenv('KNOT_CLIENT_ID')
+        
+        # In tunnel mode, sessions aren't needed - return mock data
+        if knot_env == 'tunnel':
+            return jsonify({
+                'status': 'success',
+                'message': 'Tunnel mode - sessions not required',
+                'session': {
+                    'session_id': f'tunnel_session_{int(datetime.utcnow().timestamp())}',
+                    'client_token': None
+                },
+                'clientId': None,
+                'environment': 'tunnel',
+                'note': 'Tunnel mode does not support real authentication. Use test mode below.'
+            }), 200
+        
+        # For dev/prod, create real session
         from knot_session import KnotSessionManager
         
         data = request.get_json()
@@ -793,8 +813,10 @@ def create_knot_session():
                 'status': 'success',
                 'message': 'Session created. Use session_id with Knot SDK.',
                 'session': session,
+                'clientId': client_id,
+                'environment': knot_env,  # 'development' or 'production'
                 'next_steps': [
-                    'Invoke Knot SDK with this session_id',
+                    'Invoke Knot SDK with this session_id, clientId, and environment',
                     'User logs in with test credentials: user_good_transactions / pass_good',
                     'Wait for transactions to be generated',
                     'Then call /api/knot/sync/{external_user_id}'
@@ -822,26 +844,155 @@ def create_knot_session():
 def list_knot_merchants():
     """List all available Knot merchants"""
     try:
+        # Try to get merchants from Knot API (dev/prod)
         from knot_session import KnotSessionManager
         
         manager = KnotSessionManager()
         merchants = manager.list_merchants()
         
-        if merchants:
+        if merchants and merchants.get('merchants'):
             return jsonify(merchants), 200
         else:
+            # Fallback: Return common grocery merchants
+            print("⚠️  Knot API merchants not available, using fallback list")
             return jsonify({
-                'error': 'Failed to list merchants'
-            }), 500
+                'merchants': [
+                    {'id': 44, 'name': 'Amazon', 'category': 'grocery'},
+                    {'id': 40, 'name': 'Instacart', 'category': 'grocery'},
+                    {'id': 45, 'name': 'Walmart', 'category': 'grocery'},
+                    {'id': 12, 'name': 'Target', 'category': 'grocery'},
+                    {'id': 165, 'name': 'Costco', 'category': 'grocery'},
+                    {'id': 19, 'name': 'DoorDash', 'category': 'grocery'},
+                    {'id': 36, 'name': 'Uber Eats', 'category': 'grocery'},
+                ]
+            }), 200
     
     except ImportError:
+        # Fallback: Return common grocery merchants
+        print("⚠️  KnotSessionManager not available, using fallback list")
         return jsonify({
-            'error': 'Session manager not available. Use tunnel mode.'
-        }), 500
+            'merchants': [
+                {'id': 44, 'name': 'Amazon', 'category': 'grocery'},
+                {'id': 40, 'name': 'Instacart', 'category': 'grocery'},
+                {'id': 45, 'name': 'Walmart', 'category': 'grocery'},
+                {'id': 12, 'name': 'Target', 'category': 'grocery'},
+                {'id': 165, 'name': 'Costco', 'category': 'grocery'},
+                {'id': 19, 'name': 'DoorDash', 'category': 'grocery'},
+                {'id': 36, 'name': 'Uber Eats', 'category': 'grocery'},
+            ]
+        }), 200
     except Exception as e:
+        print(f"❌ Error listing merchants: {e}")
+        # Fallback: Return common grocery merchants even on error
         return jsonify({
-            'error': str(e)
-        }), 500
+            'merchants': [
+                {'id': 44, 'name': 'Amazon', 'category': 'grocery'},
+                {'id': 40, 'name': 'Instacart', 'category': 'grocery'},
+                {'id': 45, 'name': 'Walmart', 'category': 'grocery'},
+                {'id': 12, 'name': 'Target', 'category': 'grocery'},
+                {'id': 165, 'name': 'Costco', 'category': 'grocery'},
+                {'id': 19, 'name': 'DoorDash', 'category': 'grocery'},
+                {'id': 36, 'name': 'Uber Eats', 'category': 'grocery'},
+            ],
+            'note': 'Using fallback merchant list. Real merchants available with dev/prod credentials.'
+        }), 200
+
+
+@app.route('/api/knot/webhook', methods=['POST'])
+def knot_webhook():
+    """
+    Handle webhooks from Knot API
+    
+    Events:
+    - account_linked: User successfully connected merchant account
+    - new_transactions: New transactions available
+    - updated_transactions: Existing transactions updated
+    """
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': 'No data received'}), 400
+        
+        event_type = data.get('event') or data.get('type')
+        external_user_id = data.get('external_user_id')
+        
+        print(f"📨 Knot webhook received: {event_type} for user {external_user_id}")
+        
+        if not external_user_id:
+            print("⚠️  No external_user_id in webhook")
+            return jsonify({'error': 'Missing external_user_id'}), 400
+        
+        # Find customer by knot_customer_id
+        customer = Customer.query.filter_by(knot_customer_id=external_user_id).first()
+        
+        if event_type == 'account_linked' or event_type == 'ACCOUNT_LINKED':
+            print(f"✅ Account linked for user {external_user_id}")
+            
+            if customer:
+                customer.last_active = datetime.utcnow()
+                db.session.commit()
+                print(f"   Updated customer {customer.id} last_active")
+            else:
+                print(f"   Customer not found for {external_user_id}, will be created on sync")
+            
+            return jsonify({'status': 'ok', 'message': 'Account linked'}), 200
+        
+        elif event_type == 'new_transactions' or event_type == 'NEW_TRANSACTIONS_AVAILABLE':
+            print(f"🛒 New transactions available for user {external_user_id}")
+            
+            # Sync transactions from Knot
+            if customer:
+                try:
+                    sync_data = knot_client.sync_customer_data(external_user_id)
+                    if sync_data:
+                        # Update customer preferences
+                        customer.set_preferences(sync_data.get('preferences', {}))
+                        customer.last_active = datetime.utcnow()
+                        db.session.commit()
+                        
+                        # Trigger recommendations if needed
+                        print(f"   Synced {sync_data.get('transaction_count', 0)} transactions")
+                        
+                        # Notify customer via WebSocket
+                        notify_customer(customer.id, 'transactions_synced', {
+                            'transaction_count': sync_data.get('transaction_count', 0),
+                            'message': 'New transactions synced from your merchant account'
+                        })
+                except Exception as e:
+                    print(f"   Error syncing transactions: {e}")
+            
+            return jsonify({'status': 'ok', 'message': 'Transactions synced'}), 200
+        
+        elif event_type == 'updated_transactions' or event_type == 'UPDATED_TRANSACTIONS_AVAILABLE':
+            print(f"🔄 Transactions updated for user {external_user_id}")
+            
+            # Re-sync to get updated data
+            if customer:
+                try:
+                    sync_data = knot_client.sync_customer_data(external_user_id)
+                    if sync_data:
+                        customer.set_preferences(sync_data.get('preferences', {}))
+                        customer.last_active = datetime.utcnow()
+                        db.session.commit()
+                        
+                        notify_customer(customer.id, 'transactions_updated', {
+                            'message': 'Your transaction data has been updated'
+                        })
+                except Exception as e:
+                    print(f"   Error updating transactions: {e}")
+            
+            return jsonify({'status': 'ok', 'message': 'Transactions updated'}), 200
+        
+        else:
+            print(f"ℹ️  Unhandled webhook event: {event_type}")
+            return jsonify({'status': 'ok', 'message': 'Event received'}), 200
+    
+    except Exception as e:
+        print(f"❌ Error handling webhook: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
 
 
 # ============ Recommendations API ============

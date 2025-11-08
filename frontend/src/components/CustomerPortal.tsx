@@ -139,6 +139,13 @@ interface KnotTransaction {
   }[];
 }
 
+// TypeScript types for Knot SDK v1.0+ (loaded from CDN)
+declare global {
+  interface Window {
+    KnotapiJS: any;
+  }
+}
+
 const CustomerPortalContent = () => {
   const [customerId, setCustomerId] = useState<number | null>(null);
   const [customer, setCustomer] = useState<Customer | null>(null);
@@ -150,6 +157,8 @@ const CustomerPortalContent = () => {
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [knotTransactions, setKnotTransactions] = useState<KnotTransaction[]>([]);
   const [showTransactionType, setShowTransactionType] = useState<'suscart' | 'knot'>('knot');
+  const [merchants, setMerchants] = useState<any[]>([]);
+  const [connectingMerchant, setConnectingMerchant] = useState<number | null>(null);
   
   const wsRef = useRef<WebSocket | null>(null);
 
@@ -162,7 +171,22 @@ const CustomerPortalContent = () => {
       loadCustomerData(id);
       connectWebSocket(id);
     }
+    
+    // Load available merchants
+    loadMerchants();
   }, []);
+  
+  const loadMerchants = async () => {
+    try {
+      const response = await fetch(`${config.apiUrl}/api/knot/merchants`);
+      if (response.ok) {
+        const data = await response.json();
+        setMerchants(data.merchants || []);
+      }
+    } catch (error) {
+      console.error('Error loading merchants:', error);
+    }
+  };
 
   // Helper function to normalize recommendation data and filter
   const normalizeAndFilterRecommendations = (recs: Recommendation[]): Recommendation[] => {
@@ -351,6 +375,116 @@ const CustomerPortalContent = () => {
     }
   };
 
+  // Real Knot authentication using Knot Link widget
+  const connectMerchantAccount = async (merchantId: number) => {
+    // First, ensure user is logged in
+    if (!customerId) {
+      // Try to create a customer first
+      const tempCustomerId = Date.now().toString();
+      setCustomerId(parseInt(tempCustomerId));
+      localStorage.setItem('suscart_customer_id', tempCustomerId);
+    }
+
+    const currentCustomerId = customerId || parseInt(localStorage.getItem('suscart_customer_id') || '0');
+    
+    if (!currentCustomerId) {
+      alert('Please login first or create an account');
+      return;
+    }
+
+    setConnectingMerchant(merchantId);
+    
+    try {
+      // Step 1: Create Knot session
+      console.log(`Creating Knot session for customer ${currentCustomerId}...`);
+      const sessionRes = await fetch(`${config.apiUrl}/api/knot/session/create`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          external_user_id: currentCustomerId.toString()
+        })
+      });
+
+      if (!sessionRes.ok) {
+        const error = await sessionRes.json();
+        throw new Error(error.message || 'Failed to create session');
+      }
+
+      const sessionData = await sessionRes.json();
+      
+      // Check if tunnel mode (no real authentication)
+      if (sessionData.environment === 'tunnel' || !sessionData.clientId) {
+        alert('Real authentication requires dev/prod environment. Please use test mode below or configure KNOT_CLIENT_ID and KNOT_ENV in your .env file.');
+        setConnectingMerchant(null);
+        return;
+      }
+      
+      const sessionId = sessionData.session?.session_id || sessionData.session_id;
+      const clientId = sessionData.clientId;
+      const environment = sessionData.environment; // 'development' or 'production'
+
+      if (!sessionId || !clientId) {
+        throw new Error('Missing session ID or client ID from backend');
+      }
+
+      console.log('Session created:', { sessionId, clientId, environment });
+
+      // Step 2: Check if Knot SDK is loaded
+      if (!window.KnotapiJS) {
+        throw new Error('Knot SDK not loaded. Please refresh the page.');
+      }
+
+      // Step 3: Initialize Knot SDK v1.0+ (new API)
+      const KnotapiJS = window.KnotapiJS.default || window.KnotapiJS;
+      const knotapi = new KnotapiJS();
+
+      // Step 4: Open the SDK with proper configuration
+      knotapi.open({
+        sessionId: sessionId,
+        clientId: clientId,
+        environment: environment, // 'development' or 'production'
+        product: 'transaction_link',
+        merchantIds: [merchantId], // Single merchant for focused experience
+        entryPoint: 'customer_portal',
+        useCategories: false, // Single merchant, no need for categories
+        useSearch: false, // Single merchant, no need for search
+        onSuccess: (product: string, details: any) => {
+          console.log('Account connected successfully!', product, details);
+          setConnectingMerchant(null);
+          
+          alert(`Account connected! Your ${details.merchantName || 'merchant'} transactions will sync automatically.`);
+          
+          // Refresh customer data after a short delay (webhook will update)
+          setTimeout(() => {
+            if (currentCustomerId) {
+              loadCustomerData(currentCustomerId);
+            }
+          }, 2000);
+        },
+        onError: (product: string, errorCode: string, errorDescription: string) => {
+          console.error('Knot connection error:', { product, errorCode, errorDescription });
+          setConnectingMerchant(null);
+          alert(`Connection failed: ${errorCode} - ${errorDescription}`);
+        },
+        onExit: (product: string) => {
+          console.log('Knot SDK closed', product);
+          setConnectingMerchant(null);
+        },
+        onEvent: (product: string, event: string, merchant: string, merchantId: number, payload: any, taskId: string) => {
+          console.log('Knot SDK event:', { product, event, merchant, merchantId, payload, taskId });
+        }
+      });
+
+    } catch (error: any) {
+      console.error('Error connecting merchant account:', error);
+      setConnectingMerchant(null);
+      alert(`Error: ${error.message || 'Failed to connect account'}`);
+    }
+  };
+
+  // Fallback: Old sync method for tunnel mode (testing)
   const syncFromKnot = async () => {
     if (!knotUserId.trim()) {
       alert('Please enter a Knot user ID (e.g., "abc" for test)');
@@ -442,33 +576,67 @@ const CustomerPortalContent = () => {
           
           <div className="knot-sync-section">
             <h2>Connect Your Account</h2>
-            <p>Link your grocery purchase history via Knot API</p>
+            <p>Link your grocery purchase history by connecting your merchant accounts</p>
             
-            <div className="sync-form">
-              <input
-                type="text"
-                value={knotUserId}
-                onChange={(e) => setKnotUserId(e.target.value)}
-                placeholder="Enter Knot user ID (e.g., 'abc')"
-                className="knot-input"
-              />
-              <button 
-                onClick={syncFromKnot} 
-                disabled={syncLoading}
-                className="sync-button"
-              >
-                {syncLoading ? 'Syncing...' : 'Connect with Knot'}
-              </button>
+            {/* Real Knot Authentication - Merchant Buttons */}
+            {merchants.length > 0 ? (
+              <div className="merchant-buttons">
+                <p className="hint">Select a store to connect:</p>
+                <div className="merchant-grid">
+                  {merchants.slice(0, 6).map((merchant: any) => (
+                    <button
+                      key={merchant.id}
+                      onClick={() => connectMerchantAccount(merchant.id)}
+                      disabled={connectingMerchant !== null}
+                      className={`merchant-btn ${connectingMerchant === merchant.id ? 'connecting' : ''}`}
+                    >
+                      {connectingMerchant === merchant.id ? (
+                        <>Connecting...</>
+                      ) : (
+                        <>
+                          <span className="merchant-name">{merchant.name}</span>
+                        </>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="merchant-buttons">
+                <p className="hint">Loading merchants...</p>
+              </div>
+            )}
+            
+            {/* Fallback: Test Mode (Tunnel) */}
+            <div className="or-divider-small">
+              <span>OR</span>
             </div>
-            
-            <div className="test-users">
-              <p className="hint">Test Users:</p>
-              <button onClick={() => setKnotUserId('abc')} className="test-user-btn">
-                Use 'abc' (Test Data)
-              </button>
-              <button onClick={() => setKnotUserId('user123')} className="test-user-btn">
-                Use 'user123' (Mock)
-              </button>
+            <div className="test-mode-section">
+              <p className="hint">Test Mode (for development):</p>
+              <div className="sync-form">
+                <input
+                  type="text"
+                  value={knotUserId}
+                  onChange={(e) => setKnotUserId(e.target.value)}
+                  placeholder="Enter Knot user ID (e.g., 'abc')"
+                  className="knot-input"
+                />
+                <button 
+                  onClick={syncFromKnot} 
+                  disabled={syncLoading}
+                  className="sync-button"
+                >
+                  {syncLoading ? 'Syncing...' : 'Sync Test Data'}
+                </button>
+              </div>
+              <div className="test-users">
+                <button onClick={() => setKnotUserId('abc')} className="test-user-btn">
+                  Use 'abc' (Test Data)
+                </button>
+                <button onClick={() => setKnotUserId('user123')} className="test-user-btn">
+                  Use 'user123' (Mock)
+                </button>
+              </div>
             </div>
           </div>
 
