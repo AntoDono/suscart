@@ -1,362 +1,486 @@
-# SusCart - Sustainable Shopping System
-## Project Requirements Document
+<div align="center">
 
-### Executive Summary
-SusCart is a smart inventory management and customer recommendation system that reduces food waste by connecting grocery stores with customers. Using AI-powered freshness monitoring, the system provides dynamic discounts on items nearing expiration and recommends these deals to customers based on their purchase history.
+![EdgeCart Logo](frontend/public/edgecart.png)
 
----
+# **EdgeCart**
+## Predictive Waste Intelligence System
 
-## 1. System Overview
+*Sometimes sustainability isn't about doing something grand—it's about starting small.*
 
-### Core Problem
-- Grocery stores waste food that expires on shelves
-- Customers want better deals on fresh produce
-- Environmental impact from food waste
+**We're tackling food waste, one produce shelf at a time.**
 
-### Solution
-- Real-time fruit freshness monitoring via camera/AI
-- Predictive analytics for waste prevention
-- Dynamic pricing based on freshness
-- Personalized customer recommendations
-- Win-win-win: stores reduce waste, customers save money, planet benefits
+[![Made at HackPrinceton 2025](https://img.shields.io/badge/Made%20at-HackPrinceton%202025-orange.svg)](https://hackprinceton.com)
+[![Powered by Knot API](https://img.shields.io/badge/Powered%20by-Knot%20API-blue.svg)](https://knotapi.com)
+[![AI by xAI Grok](https://img.shields.io/badge/AI%20by-xAI%20Grok-green.svg)](https://x.ai)
 
----
+### **🔧 Technology Stack**
 
-## 2. System Architecture
+[![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
+[![Flask](https://img.shields.io/badge/Flask-3.0-000000?style=for-the-badge&logo=flask&logoColor=white)](https://flask.palletsprojects.com)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.0-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white)](https://pytorch.org)
+[![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 
-### 2.1 Technology Stack
+[![YOLOv8](https://img.shields.io/badge/YOLO-v8-00FFFF?style=for-the-badge&logo=yolo&logoColor=black)](https://github.com/ultralytics/ultralytics)
+[![OpenCV](https://img.shields.io/badge/OpenCV-4.8-5C3EE8?style=for-the-badge&logo=opencv&logoColor=white)](https://opencv.org)
+[![Google Gemini](https://img.shields.io/badge/Google-Gemini-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev)
+[![WebSocket](https://img.shields.io/badge/WebSocket-Real--time-010101?style=for-the-badge&logo=socket.io&logoColor=white)](https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API)
+[![SQLite](https://img.shields.io/badge/SQLite-3.0-003B57?style=for-the-badge&logo=sqlite&logoColor=white)](https://www.sqlite.org)
 
-**Backend:**
-- Python Flask (REST API & WebSocket server)
-- Flask-SQLA (Database ORM)
-- Flask-Sock (WebSocket support)
-- SQLite/PostgreSQL (Database)
-- Knot API (Customer purchase tracking)
-
-**Frontend:**
-- React.js
-- WebSocket client for real-time updates
-
-**AI/Computer Vision:**
-- Camera system for fruit monitoring
-- ML model for freshness prediction (teammate responsibility)
-
-### 2.2 System Components
-
-```
-┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│   Camera/AI     │────▶│  Flask Backend   │────▶│  React Frontend │
-│  (Freshness)    │     │   (API + WS)     │     │  (Dashboard)    │
-└─────────────────┘     └──────────────────┘     └─────────────────┘
-                               │  ▲
-                               │  │
-                        ┌──────▼──┴───────┐
-                        │    Database      │
-                        │  (Inventory,     │
-                        │   Customers)     │
-                        └──────────────────┘
-                               │
-                        ┌──────▼──────────┐
-                        │    Knot API     │
-                        │  (Purchase Data) │
-                        └─────────────────┘
-```
+</div>
 
 ---
 
-## 3. Functional Requirements
+## 🌍 The Problem
 
-### 3.1 Admin Dashboard Features
-- **Inventory Management**
-  - View all fruit items in stock
-  - Real-time freshness status for each item
-  - Predicted expiration dates
-  - Current discount levels
-  - Historical waste data
+Every year, **40% of food in America goes to waste**—that's $408 billion worth of food thrown away. Meanwhile:
+- Grocery stores lose money on expired produce
+- Customers miss out on deals on perfectly good food
+- Our planet suffers from unnecessary environmental impact
 
-- **Dynamic Pricing**
-  - Automatic discount calculation based on freshness
-  - Manual override for discount rates
-  - Discount tiers (e.g., 10%, 25%, 50% off)
-
-- **Analytics Dashboard**
-  - Total waste prevented
-  - Revenue from discounted items
-  - Popular items
-  - Customer engagement metrics
-
-### 3.2 Customer Features
-- **Personalized Recommendations**
-  - Items they frequently buy
-  - Items on discount that match preferences
-  - Optimal shopping times
-  - Savings summary
-
-- **Purchase History**
-  - Track past purchases (via Knot API)
-  - Spending patterns
-  - Favorite items
-
-- **Real-time Notifications**
-  - Push notifications for matching deals
-  - WebSocket updates for live inventory
-
-### 3.3 Freshness Monitoring System
-- **Camera Integration**
-  - Continuous monitoring of fruit stock
-  - Image capture at regular intervals
-  - Integration with backend API
-
-- **AI Prediction Model**
-  - Analyze fruit condition
-  - Predict days until expiration
-  - Freshness score (0-100)
-  - Confidence level
+The current approach? Random discounts, generic sales, and hoping someone buys it. **It doesn't work.**
 
 ---
 
-## 4. Database Schema
+## 💡 The EdgeCart Solution
 
-### 4.1 Core Tables
+We're bringing **intelligence to the edge** of the supply chain—right where food meets shelf.
 
-**stores**
-- id (PK)
-- name
-- location
-- contact_info
-- created_at
+### **How It Works**
 
-**fruit_inventory**
-- id (PK)
-- store_id (FK)
-- fruit_type (apple, banana, etc.)
-- quantity
-- batch_number
-- arrival_date
-- location_in_store
-- original_price
-- current_price
-- created_at
-- updated_at
+#### 1. **🎥 Smart Camera Surveillance**
+Cameras point directly at produce shelves, continuously monitoring fruits, vegetables, and perishables in real-time using:
+- **YOLO object detection** to identify what's on the shelf
+- **ResNet freshness model** scoring items from 100 (just arrived) to 0 (spoiled)
+- **Gemini blemish detection** for precise quality assessment
 
-**freshness_status**
-- id (PK)
-- inventory_id (FK)
-- freshness_score (0-100)
-- predicted_expiry_date
-- confidence_level
-- discount_percentage
-- status (fresh, warning, critical, expired)
-- last_checked
-- image_url (optional)
-- notes
+Our AI detects visual changes—browning bananas, soft spots on tomatoes, wilting lettuce—creating a **real-time decay map** of all inventory.
 
-**customers**
-- id (PK)
-- knot_customer_id
-- name
-- email
-- phone
-- preferences (JSON)
-- created_at
+#### 2. **🔗 Customer Intelligence via Knot API**
+Customers download our app and connect their bank/cards through **Knot API**, which reveals:
+- Complete purchase history across all grocery stores
+- What they buy, how often, from which stores
+- Price sensitivity and spending patterns
 
-**purchase_history**
-- id (PK)
-- customer_id (FK)
-- inventory_id (FK)
-- quantity
-- price_paid
-- discount_applied
-- purchase_date
-- knot_transaction_id
+The system learns: *"User A buys avocados 2x per week, always organic, usually spends $3-4 each"* and *"User B bought strawberries 5 times last month, only when under $5."*
 
-**recommendations**
-- id (PK)
-- customer_id (FK)
-- inventory_id (FK)
-- reason (JSON)
-- priority_score
-- sent_at
-- viewed
-- purchased
+#### 3. **🎯 Smart Matching in Real-Time**
+When cameras detect produce entering the "risky" freshness zone (70% freshness, 12 hours until spoilage):
+1. AI automatically calculates dynamic discounts (lower freshness = deeper discount)
+2. System identifies customers who **actually buy** that item
+3. Push notification: *"Your favorite organic avocados now 40% off at Store X, perfect ripeness for tonight!"*
 
-**waste_log**
-- id (PK)
-- inventory_id (FK)
-- quantity_wasted
-- reason
-- estimated_value_loss
-- logged_at
+**No spam. No random deals. Only relevant offers for groceries you were already going to buy.**
+
+#### 4. **🤖 AI-Powered Recommendations (xAI Grok)**
+Our recommendation engine powered by **xAI's Grok** analyzes:
+- **Purchase Pattern Analysis** - When are they due for their next shopping trip?
+- **Timing Relevance** - Weekend bulk buyers vs. weekday shoppers
+- **Value Perception** - Does the discount exceed their usual threshold?
+- **Behavioral Triggers** - Seasonal preferences, health choices, new varieties
+- **Urgency Factors** - Limited quantity, time sensitivity, expiration proximity
+
+Example reasoning: *"Perfect for meal prep Sunday - matches weekly buying pattern, 30% discount exceeds usual 20% threshold, last purchased 8 days ago (usual cycle: 10 days)"*
+
+#### 5. **📊 Predictive Analytics for Stores**
+Store dashboard provides actionable insights:
+- *"Based on current decay rates and customer buying patterns, reduce next banana order by 30%"*
+- *"Your avocado customers also shop at Whole Foods - stock more organic"*
+- *"50 customers notified about strawberries but only 10 bought - discount wasn't deep enough"*
+
+#### 6. **🌱 Zero-Waste Fallback**
+For items that won't sell even with targeted discounts:
+- System auto-schedules food bank donations 12 hours before critical decay
+- Customers who referred the food bank earn "waste warrior" points
+- Community impact tracking shows pounds of food saved
+
+#### 7. **💬 Natural Language Insights (xAI Grok)**
+Everything is queryable:
+- **Stores ask:** *"Which products have the worst sell-through rate at 60% freshness?"*
+- **Customers ask:** *"How much could I save monthly based on my shopping patterns?"*
+- Instant AI-powered insights with context
 
 ---
 
-## 5. API Endpoints
+## 🏗️ System Architecture
 
-### 5.1 Inventory Management
-- `GET /api/inventory` - List all inventory items
-- `POST /api/inventory` - Add new inventory item
-- `GET /api/inventory/:id` - Get specific item details
-- `PUT /api/inventory/:id` - Update inventory item
-- `DELETE /api/inventory/:id` - Remove inventory item
+### **High-Level Component Diagram**
 
-### 5.2 Freshness Monitoring
-- `POST /api/freshness/update` - Receive freshness data from AI
-- `GET /api/freshness/:inventory_id` - Get freshness status
-- `GET /api/freshness/critical` - Get items nearing expiration
-
-### 5.3 Customer & Recommendations
-- `GET /api/customers` - List all customers
-- `GET /api/customers/:id` - Get customer details
-- `POST /api/customers` - Register new customer
-- `GET /api/recommendations/:customer_id` - Get personalized recommendations
-- `POST /api/recommendations/generate` - Trigger recommendation generation
-
-### 5.4 Analytics
-- `GET /api/analytics/waste` - Waste prevention metrics
-- `GET /api/analytics/revenue` - Revenue from discounts
-- `GET /api/analytics/customer-engagement` - Customer metrics
-
-### 5.5 Knot API Integration
-- `POST /api/knot/sync` - Sync purchase data from Knot
-- `GET /api/knot/customer/:knot_id` - Get customer data from Knot
-
----
-
-## 6. WebSocket Events
-
-### 6.1 Real-time Updates
-**Admin Dashboard:**
-- `inventory_updated` - Inventory changes
-- `freshness_alert` - Item reaching critical freshness
-- `new_purchase` - Customer purchase made
-- `waste_logged` - Item wasted
-
-**Customer App:**
-- `new_recommendation` - New deal matches preferences
-- `price_drop` - Watched item price decreased
-- `stock_alert` - Favorite item back in stock
-
----
-
-## 7. Knot API Integration
-
-### 7.1 What is Knot API?
-Knot is a unified API that connects to various commerce platforms to retrieve customer purchase data.
-
-### 7.2 Integration Points
-1. **Customer Purchase Sync**
-   - Periodically fetch purchase history
-   - Map Knot customer IDs to SusCart customers
-   - Store transaction data
-
-2. **Customer Preferences**
-   - Analyze purchase patterns
-   - Identify favorite items
-   - Determine price sensitivity
-   - Calculate purchase frequency
-
-3. **Recommendation Engine**
-   - Match discounted items to customer preferences
-   - Consider purchase timing
-   - Factor in price thresholds
-
----
-
-## 8. Backend Implementation Priorities
-
-### Phase 1: Core Infrastructure (Week 1)
-- [ ] Database setup with SQLAlchemy
-- [ ] Basic CRUD endpoints for inventory
-- [ ] Freshness status tracking
-- [ ] WebSocket real-time updates
-
-### Phase 2: AI Integration (Week 2)
-- [ ] Endpoint to receive freshness predictions
-- [ ] Automatic discount calculation
-- [ ] Alert system for critical items
-
-### Phase 3: Customer Features (Week 3)
-- [ ] Knot API integration
-- [ ] Customer profile management
-- [ ] Purchase history tracking
-- [ ] Basic recommendation algorithm
-
-### Phase 4: Advanced Features (Week 4)
-- [ ] Advanced recommendation ML model
-- [ ] Analytics dashboard
-- [ ] Waste tracking and reporting
-- [ ] Performance optimization
-
----
-
-## 9. Data Flow Examples
-
-### 9.1 Freshness Update Flow
-```
-1. Camera captures fruit image
-2. AI model analyzes image → freshness score
-3. POST /api/freshness/update with score
-4. Backend calculates discount percentage
-5. Updates database
-6. WebSocket broadcasts update to admin dashboard
-7. If discount triggers recommendation, notify customers
+```mermaid
+graph TB
+    subgraph "Edge Layer"
+        CAM[📹 Smart Cameras<br/>YOLO + ResNet + Gemini]
+    end
+    
+    subgraph "Backend Services"
+        API[🔧 Flask API<br/>REST + WebSocket]
+        DB[(🗄️ SQLite DB<br/>Inventory + Customers)]
+        AI[🤖 xAI Grok<br/>Recommendation Engine]
+    end
+    
+    subgraph "External APIs"
+        KNOT[🔗 Knot API<br/>Purchase History]
+    end
+    
+    subgraph "User Interfaces"
+        ADMIN[👨‍💼 Admin Dashboard<br/>React + TypeScript]
+        CUSTOMER[👤 Customer Portal<br/>React + TypeScript]
+    end
+    
+    CAM -->|Real-time Detection| API
+    API <-->|Store/Query| DB
+    API <-->|Get Recommendations| AI
+    API <-->|Sync Purchase Data| KNOT
+    API <-->|WebSocket Updates| ADMIN
+    API <-->|WebSocket Notifications| CUSTOMER
+    
+    style CAM fill:#4ade80,stroke:#22c55e,color:#000
+    style API fill:#60a5fa,stroke:#3b82f6,color:#000
+    style DB fill:#a78bfa,stroke:#8b5cf6,color:#000
+    style AI fill:#fbbf24,stroke:#f59e0b,color:#000
+    style KNOT fill:#fb923c,stroke:#f97316,color:#000
+    style ADMIN fill:#ec4899,stroke:#db2777,color:#000
+    style CUSTOMER fill:#06b6d4,stroke:#0891b2,color:#000
 ```
 
-### 9.2 Customer Recommendation Flow
+### **Data Flow: From Detection to Customer Notification**
+
+```mermaid
+sequenceDiagram
+    participant Camera as 📹 Smart Camera
+    participant API as 🔧 Backend API
+    participant DB as 🗄️ Database
+    participant Grok as 🤖 xAI Grok
+    participant Knot as 🔗 Knot API
+    participant Customer as 👤 Customer App
+    
+    Camera->>API: Detect banana @ 65% freshness
+    API->>DB: Update freshness score
+    API->>DB: Calculate discount (35% off)
+    
+    alt Discount >= 20%
+        API->>DB: Query customers
+        API->>Knot: Fetch purchase patterns
+        Knot-->>API: Sarah buys bananas weekly
+        
+        API->>Grok: Analyze match quality
+        Grok-->>API: Priority: 92 (Perfect match)
+        
+        API->>DB: Create recommendation
+        API->>Customer: 🔔 Push notification
+        Customer-->>API: View notification
+        API->>DB: Mark as viewed
+    end
+    
+    Note over Camera,Customer: Real-time processing: ~2-3 seconds
 ```
-1. Freshness system flags item for discount
-2. Backend queries Knot API for customer preferences
-3. Matching algorithm finds relevant customers
-4. Creates recommendation records
-5. WebSocket pushes notification to customer app
-6. Customer views and optionally purchases
+
+### **AI/ML Pipeline Architecture**
+
+```mermaid
+flowchart LR
+    subgraph "Computer Vision Pipeline"
+        IMG[📸 Camera Frame] --> YOLO[YOLO v8<br/>Object Detection]
+        YOLO --> CROP[Crop Objects]
+        CROP --> RESNET[ResNet18<br/>Freshness 0-100]
+        CROP --> GEMINI[Gemini Robotics<br/>Blemish Detection]
+    end
+    
+    subgraph "Decision Engine"
+        RESNET --> SCORE[Freshness Score]
+        GEMINI --> BLEMISH[Blemish Count]
+        SCORE --> DISCOUNT[Calculate<br/>Dynamic Discount]
+        BLEMISH --> DISCOUNT
+    end
+    
+    subgraph "Recommendation AI"
+        DISCOUNT --> FILTER{Discount<br/>>= 20%?}
+        FILTER -->|Yes| GROK[xAI Grok<br/>Match Customers]
+        FILTER -->|No| SKIP[Skip]
+        GROK --> NOTIFY[Push Notification]
+    end
+    
+    style IMG fill:#4ade80,stroke:#22c55e
+    style YOLO fill:#60a5fa,stroke:#3b82f6
+    style RESNET fill:#a78bfa,stroke:#8b5cf6
+    style GEMINI fill:#fbbf24,stroke:#f59e0b
+    style GROK fill:#fb923c,stroke:#f97316
+    style NOTIFY fill:#ec4899,stroke:#db2777
+```
+
+### **Customer Journey Map**
+
+```mermaid
+journey
+    title Customer Experience with EdgeCart
+    section Discovery
+      Download app: 5: Customer
+      Connect Knot account: 4: Customer
+      Sync purchase history: 5: System
+    section First Deal
+      Camera detects ripe avocado: 5: System
+      AI matches with customer: 5: System
+      Push notification sent: 5: System
+      Customer sees deal: 4: Customer
+    section Purchase
+      Customer visits store: 4: Customer
+      Buys discounted avocado: 5: Customer
+      Saves 40%: 5: Customer
+    section Impact
+      Feel good about waste: 5: Customer
+      See savings dashboard: 5: Customer
+      Get another deal: 5: System
+```
+
+### **Technology Stack Visualization**
+
+```mermaid
+mindmap
+  root((EdgeCart))
+    Backend
+      Flask REST API
+      WebSocket Server
+      SQLite Database
+      Python 3.11
+    AI/ML
+      YOLOv8
+        Object Detection
+        Real-time Inference
+      ResNet18
+        Transfer Learning
+        Freshness Classification
+      Gemini Robotics
+        Blemish Segmentation
+        Quality Assessment
+      xAI Grok
+        NLP Recommendations
+        Context Understanding
+    Frontend
+      React + TypeScript
+      Framer Motion
+      WebSocket Client
+      Custom Terminal UI
+    External APIs
+      Knot API
+        Purchase History
+        Customer Profiles
+        Multi-merchant Data
 ```
 
 ---
 
-## 10. Success Metrics
+## 🎯 The Impact
 
-### Business Metrics
-- % reduction in food waste
-- Revenue from discounted items
-- Customer adoption rate
-- Average discount vs full price sales
+### **For Stores**
+- ✅ Reduce food waste by 30-50%
+- ✅ Recover revenue from inventory that would expire
+- ✅ Better inventory forecasting based on actual customer demand
+- ✅ Turn waste into profit
 
-### Technical Metrics
-- API response time < 200ms
-- WebSocket latency < 50ms
-- Database query optimization
-- 99.9% uptime
+### **For Customers**
+- ✅ Save 30-50% on groceries they already buy
+- ✅ Get notified only about items they actually want
+- ✅ Buy produce at optimal ripeness for their needs
+- ✅ Feel good about reducing waste
 
-### Environmental Impact
-- Pounds of food waste prevented
-- Estimated CO2 reduction
-- Water savings
-
----
-
-## 11. Security & Privacy
-
-- Secure API authentication (JWT tokens)
-- Encrypt customer data
-- GDPR compliance for EU customers
-- Secure WebSocket connections (WSS)
-- Rate limiting on API endpoints
+### **For the Planet**
+- 🌍 Less food in landfills = reduced methane emissions
+- 💧 Conserve water used to grow wasted food
+- 🌱 More efficient food supply chain
+- ♻️ Circular economy approach to grocery retail
 
 ---
 
-## 12. Future Enhancements
+## 🛠️ Technology Stack
 
-- Mobile app (iOS/Android)
-- Multiple store locations
-- Recipe suggestions based on available items
-- Delivery integration
-- Community food donation for near-expired items
-- Gamification (rewards for preventing waste)
+### **Backend** (Python)
+- **Flask** - REST API & WebSocket server
+- **Flask-SQLA** - Database ORM
+- **OpenCV + YOLO** - Real-time object detection
+- **PyTorch + ResNet** - Freshness classification model
+- **Google Gemini** - Blemish segmentation & detection
+- **Knot API** - Customer purchase data integration
+- **xAI Grok** - AI-powered recommendation engine
+- **SQLite/PostgreSQL** - Database
+
+### **Frontend** (React + TypeScript)
+- **React** - Modern component-based UI
+- **WebSocket** - Real-time updates
+- **Framer Motion** - Smooth animations
+- **Custom Terminal UI** - Cyberpunk aesthetic
+
+### **AI/ML Models**
+1. **YOLOv8** - Object detection for identifying produce
+2. **ResNet18** - Transfer learning for fresh/rotten classification
+3. **Gemini Robotics** - High-precision blemish detection
+4. **xAI Grok** - Natural language recommendations
 
 ---
 
-**Last Updated:** November 8, 2025  
-**Version:** 1.0  
-**Status:** Active Development
+## 🚀 Quick Start
 
+### **Prerequisites**
+```bash
+# Python 3.11+
+python --version
+
+# Node.js 18+
+node --version
+```
+
+### **Backend Setup**
+```bash
+cd backend
+
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Set up environment variables
+cp .env.example .env
+# Edit .env with your API keys:
+# - KNOT_CLIENT_ID (from Knot)
+# - KNOT_SECRET (from Knot)
+# - XAI_API_KEY (from xAI)
+# - GEMINI_API_KEY (from Google)
+
+# Initialize database with sample data
+POPULATE=true python main.py
+```
+
+### **Frontend Setup**
+```bash
+cd frontend
+
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+```
+
+### **Access the System**
+- **Admin Dashboard:** http://localhost:5173
+- **Customer Portal:** http://localhost:5173/#/customer
+- **Backend API:** http://localhost:3000
+
+---
+
+## 📸 Demo Users
+
+Try these pre-loaded customer profiles (no Knot API key needed):
+
+### **Sarah Chen** (@abc)
+*Health-conscious mom who loves organic berries*
+- Buys strawberries, blueberries, spinach regularly
+- Shops at Instacart and Whole Foods
+- Average spend: $45-50 per trip
+
+### **Marcus Lee** (@def)
+*Fitness enthusiast buying citrus for smoothies*
+- Buys oranges, grapefruits, kale 2x per week
+- Shops at Walmart and Target
+- Average spend: $22-35 per trip
+
+### **Emily Rodriguez** (@ghi)
+*Foodie exploring exotic fruits*
+- Buys grapes, dragon fruit, kiwi occasionally
+- Shops at specialty stores
+- Average spend: $30-40 per trip
+
+---
+
+## 🎥 Features
+
+### **Admin Dashboard**
+- 📹 **Live Camera Feed** with real-time fruit detection
+- 📊 **Inventory Management** with freshness scores
+- 🎨 **Blemish Detection** with visual highlighting
+- 📈 **Analytics** - Waste prevention metrics
+- 🔔 **WebSocket Updates** - Real-time inventory changes
+- 📉 **Predictive Ordering** - AI-suggested inventory adjustments
+
+### **Customer Portal**
+- 🛒 **Personalized Deals** based on Knot purchase history
+- 🔔 **Smart Notifications** via WebSocket (only relevant items)
+- 📜 **Purchase History** from both Knot and EdgeCart
+- 💰 **Savings Tracker** showing total money saved
+- 🌍 **Impact Dashboard** showing food waste prevented
+- 🎯 **AI Reasoning** explains why each deal was recommended
+
+### **AI Recommendation Engine**
+- 🧠 **Multi-dimensional Analysis** (timing, value, behavior, urgency)
+- 🎯 **Priority Scoring** (80-100 for perfect matches)
+- 📖 **Natural Language Reasoning** for each recommendation
+- ⚡ **Rate-Limited** to optimize API costs (10s between calls)
+- 🔄 **Feedback Loop** learns from customer responses
+
+---
+
+## 📊 Database Schema
+
+```
+stores                 fruit_inventory           freshness_status
+- id                   - id                      - id
+- name                 - store_id                - inventory_id
+- location             - fruit_type              - freshness_score (0-1.0)
+                       - quantity                - predicted_expiry_date
+                       - original_price          - discount_percentage
+                       - current_price           - status (fresh/ripe/clearance)
+                       - thumbnail_path          - last_checked
+
+customers              purchase_history          recommendations
+- id                   - id                      - id
+- knot_customer_id     - customer_id             - customer_id
+- name                 - inventory_id            - inventory_id
+- email                - quantity                - priority_score
+- preferences (JSON)   - price_paid              - reason (JSON)
+                       - discount_applied        - viewed
+                       - knot_transaction_id     - purchased
+
+quantity_change_log    waste_log
+- id                   - id
+- inventory_id         - inventory_id
+- old_quantity         - quantity_wasted
+- new_quantity         - estimated_value_loss
+- change_type          - reason
+- freshness_score      - logged_at
+```
+
+---
+
+## 🔐 Environment Variables
+
+Create a `.env` file in the `backend/` directory:
+
+```bash
+# Knot API (for customer data)
+KNOT_CLIENT_ID=your_knot_client_id
+KNOT_SECRET=your_knot_secret
+KNOT_ENV=tunnel  # tunnel, dev, or prod
+KNOT_USE_REAL=true
+
+# xAI (for AI recommendations)
+XAI_API_KEY=your_xai_api_key
+
+# Google Gemini (for blemish detection)
+GEMINI_API_KEY=your_gemini_api_key
+
+# Database
+DATABASE_URL=sqlite:///edgecart.db
+
+# Server
+PORT=3000
+POPULATE=true  # Seed with sample data on first run
+```
+
+---
+
+## 📜 License
+
+MIT License - See [LICENSE](LICENSE) file for details
+
+---
