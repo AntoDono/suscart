@@ -1536,13 +1536,20 @@ def stream_video_websocket(ws):
                                     'freshness_score': freshness_updates.get(fruit_type) if current_count > 0 else None
                                 })
                             else:
+                                # Get first cropped image for thumbnail if available (matching fruit_type)
+                                thumbnail_image = None
+                                for det in processed_detections:
+                                    if det.get('class') == fruit_type and 'cropped_image' in det:
+                                        thumbnail_image = det['cropped_image']
+                                        break
+                                
                                 updates_to_process.append({
                                     'type': 'create',
                                     'fruit_type': fruit_type,
                                     'quantity': current_count,
                                     'store_id': state['default_store_id'],
                                     'freshness_score': freshness_updates.get(fruit_type) if current_count > 0 else None,
-                                    'thumbnail_image': processed_detections[0].get('cropped_image') if processed_detections else None
+                                    'thumbnail_image': thumbnail_image
                                 })
                         
                         # Handle freshness-only updates
