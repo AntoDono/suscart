@@ -3,10 +3,10 @@ import type { ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AwesomeButton } from 'react-awesome-button';
 import 'react-awesome-button/dist/styles.css';
-import { IoMdMan, IoMdWoman, IoMdPerson } from 'react-icons/io';
+import { IoMdMan, IoMdWoman } from 'react-icons/io';
 import { GiStrawberry, GiOrange, GiGrapes, GiCherry, GiBanana, GiWatermelon, GiPineapple, GiLemon, GiPear, GiKiwiFruit, GiPeach } from 'react-icons/gi';
-import { MdEmail, MdShoppingCart, MdStore, MdAttachMoney, MdTrendingUp } from 'react-icons/md';
-import { FaLink, FaShoppingBag, FaRobot } from 'react-icons/fa';
+import { MdShoppingCart, MdStore, MdAttachMoney } from 'react-icons/md';
+import { FaLink, FaShoppingBag } from 'react-icons/fa';
 import { FaAppleWhole } from 'react-icons/fa6';
 import FaultyTerminal from './FaultyTerminal';
 import GradientText from './GradientText';
@@ -14,7 +14,7 @@ import ShoppingAssistant from './ShoppingAssistant';
 import './CustomerPortal.css';
 import { config } from '../config';
 import { mockCustomers, mockRecommendations, mockPurchases, mockKnotTransactions } from '../mockData';
-import { createKnotSession, syncKnotTransactions, openKnotAuthModal, MERCHANTS } from '../knotAuth';
+import { createKnotSession, syncKnotTransactions, openKnotAuthModal } from '../knotAuth';
 
 // Error Boundary Component
 class ErrorBoundary extends Component<

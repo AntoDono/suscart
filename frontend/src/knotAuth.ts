@@ -160,13 +160,13 @@ export const openKnotAuthModal = (sessionToken: string): Promise<{ success: bool
         resolve({ success: false });
       },
 
-      onEvent: (product: string, event: string, merchant: string, merchantId: number, payload: any, taskId: string) => {
+      onEvent: (_product: string, event: string, merchant: string, merchantId: string, _payload?: any, _taskId?: string) => {
         console.log('Knot event:', event, merchant, merchantId);
 
         // Capture merchant ID when user authenticates
         if (event === 'AUTHENTICATED') {
           console.log('✅ User authenticated with merchant:', merchant, 'ID:', merchantId);
-          connectedMerchantId = merchantId;
+          connectedMerchantId = parseInt(merchantId);
         }
       }
     });
