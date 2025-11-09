@@ -123,7 +123,7 @@
   display: none; /* Chrome, Safari, Opera */
 }
 
-.fastfetch-container {
+.admin-login .fastfetch-container {
   display: flex;
   gap: 2rem;
   align-items: flex-start;
@@ -131,55 +131,61 @@
   margin-bottom: 0.75rem;
 }
 
-.ascii-art {
+.admin-login .ascii-art {
   color: #7ECA9C;
-  font-size: 0.7rem;
+  font-size: 0.55rem;
   line-height: 1.1;
   margin: 0;
   font-family: 'Geist Mono', monospace;
   white-space: pre;
   flex-shrink: 0;
+  opacity: 0.7;
 }
 
-.system-info {
+.admin-login .system-info {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
   font-size: 0.75rem;
   flex: 1;
+  font-family: 'Geist Mono', monospace;
 }
 
-.info-line {
+.admin-login .info-line {
   display: flex;
   gap: 0.5rem;
-  color: #CCFFBD;
+  color: #AAF0D1;
   line-height: 1.2;
+  font-family: 'Geist Mono', monospace;
+  opacity: 0.8;
 }
 
-.info-line.highlight {
+.admin-login .info-line.highlight {
   color: #7ECA9C;
-  font-weight: 600;
+  font-weight: 400;
   margin-bottom: 0.1rem;
 }
 
-.info-line.separator {
+.admin-login .info-line.separator {
   color: #AAF0D1;
   opacity: 0.3;
   margin-bottom: 0.2rem;
 }
 
-.info-label {
+.admin-login .info-label {
   color: #7ECA9C;
   min-width: 70px;
+  font-family: 'Geist Mono', monospace;
 }
 
-.info-line.highlight .info-label,
-.info-line.separator .info-label {
+.admin-login .info-line.highlight .info-label,
+.admin-login .info-line.separator .info-label {
   min-width: auto;
 }
 
-.info-value {
+.admin-login .info-value {
   color: #CCFFBD;
+  font-family: 'Geist Mono', monospace;
 }
 
 .terminal-line {

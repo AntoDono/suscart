@@ -38,7 +38,7 @@
   text-align: center;
   margin-bottom: 0.5rem;
   font-size: 2.5rem;
-  background: linear-gradient(135deg, #7ECA9C 0%, #4ade80 100%);
+  background: linear-gradient(135deg, #AAF0D1 0%, #4ade80 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -58,7 +58,7 @@
 .knot-sync-section h2 {
   font-size: 1.2rem;
   margin-bottom: 0.5rem;
-  color: #7ECA9C;
+  color: #AAF0D1;
 }
 
 .knot-sync-section p {
@@ -86,13 +86,13 @@
 
 .knot-input:focus {
   outline: none;
-  border-color: #7ECA9C;
+  border-color: #AAF0D1;
   box-shadow: 0 0 0 2px rgba(126, 202, 156, 0.1);
 }
 
 .sync-button {
   padding: 0.75rem 1.5rem;
-  background: linear-gradient(135deg, #7ECA9C 0%, #4ade80 100%);
+  background: linear-gradient(135deg, #AAF0D1 0%, #4ade80 100%);
   color: #0a0f0a;
   border: none;
   border-radius: 6px;
@@ -128,7 +128,7 @@
   background: rgba(126, 202, 156, 0.1);
   border: 1px solid #2a4a2a;
   border-radius: 6px;
-  color: #7ECA9C;
+  color: #AAF0D1;
   cursor: pointer;
   margin: 0 0.25rem;
   font-family: 'Geist Mono', monospace;
@@ -167,7 +167,7 @@
 .existing-users h2 {
   font-size: 1.2rem;
   margin-bottom: 0.5rem;
-  color: #7ECA9C;
+  color: #AAF0D1;
 }
 
 .existing-users p {
@@ -196,7 +196,7 @@
 
 .user-btn:hover {
   background: rgba(126, 202, 156, 0.15);
-  border-color: #7ECA9C;
+  border-color: #AAF0D1;
   transform: translateX(4px);
 }
 
@@ -223,7 +223,7 @@
 .portal-header h1 {
   font-size: 1.5rem;
   margin: 0;
-  background: linear-gradient(135deg, #7ECA9C 0%, #4ade80 100%);
+  background: linear-gradient(135deg, #AAF0D1 0%, #4ade80 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -277,6 +277,7 @@
   color: #fe8019;
   cursor: pointer;
   font-family: 'Geist Mono', monospace;
+  font-weight: 300;
   transition: all 0.2s;
 }
 
@@ -354,7 +355,7 @@
   font-weight: 500;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  background: linear-gradient(135deg, #7ECA9C 0%, #4ade80 100%);
+  background: linear-gradient(135deg, #AAF0D1 0%, #4ade80 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -379,7 +380,7 @@
 .info-card h2 {
   font-size: 1.2rem;
   margin-bottom: 1rem;
-  color: #7ECA9C;
+  color: #AAF0D1;
 }
 
 .customer-details {
@@ -423,7 +424,7 @@
   background: rgba(126, 202, 156, 0.1);
   border: 1px solid rgba(126, 202, 156, 0.3);
   border-radius: 8px;
-  color: #7ECA9C;
+  color: #AAF0D1;
   font-family: 'Geist Mono', monospace;
   font-size: 0.9rem;
   font-weight: 500;
@@ -435,7 +436,7 @@
 
 .connect-knot-btn:hover:not(:disabled) {
   background: rgba(126, 202, 156, 0.2);
-  border-color: #7ECA9C;
+  border-color: #AAF0D1;
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(126, 202, 156, 0.2);
 }
@@ -455,7 +456,7 @@
   border-radius: 6px;
   margin-top: 1rem;
   font-size: 0.9rem;
-  color: #7ECA9C;
+  color: #AAF0D1;
 }
 
 .knot-icon {
@@ -485,7 +486,7 @@
   border-radius: 20px;
   font-size: 0.9rem;
   text-transform: capitalize;
-  color: #7ECA9C;
+  color: #AAF0D1;
 }
 
 .stats-grid {
@@ -546,7 +547,7 @@
 }
 
 .empty-state .hint {
-  color: #7ECA9C;
+  color: #AAF0D1;
   margin-top: 0.5rem;
 }
 
@@ -570,12 +571,12 @@
 
 .recommendation-card:hover {
   transform: translateY(-4px);
-  border-color: #7ECA9C;
+  border-color: #AAF0D1;
   box-shadow: 0 8px 24px rgba(126, 202, 156, 0.15);
 }
 
 .recommendation-card.new {
-  border-color: #7ECA9C;
+  border-color: #AAF0D1;
   box-shadow: 0 0 20px rgba(126, 202, 156, 0.2);
 }
 
@@ -584,7 +585,7 @@
   top: 1rem;
   right: 1rem;
   padding: 0.25rem 0.75rem;
-  background: #7ECA9C;
+  background: #AAF0D1;
   color: #0a0f0a;
   border-radius: 12px;
   font-size: 0.75rem;
@@ -602,7 +603,7 @@
   letter-spacing: 0.2em;
   margin: 0;
   text-transform: uppercase;
-  background: linear-gradient(135deg, #7ECA9C 0%, #4ade80 100%);
+  background: linear-gradient(135deg, #AAF0D1 0%, #4ade80 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -624,7 +625,13 @@
 .current-price {
   font-size: 2rem;
   font-weight: 700;
-  color: #7ECA9C;
+  color: #AAF0D1;
+}
+
+.current-price .dollar-sign,
+.original-price .dollar-sign {
+  font-weight: 300;
+  opacity: 0.7;
 }
 
 .original-price {
@@ -670,7 +677,7 @@
   margin: 1rem 0;
   padding: 0.75rem;
   background: rgba(126, 202, 156, 0.05);
-  border-left: 3px solid #7ECA9C;
+  border-left: 3px solid #AAF0D1;
   border-radius: 4px;
 }
 
@@ -682,7 +689,7 @@
 
 .from-knot {
   font-size: 0.8rem !important;
-  color: #7ECA9C !important;
+  color: #AAF0D1 !important;
   font-style: italic;
 }
 
@@ -751,7 +758,7 @@
 .notification-item {
   background: rgba(20, 30, 20, 0.6);
   border: 1px solid #2a4a2a;
-  border-left: 3px solid #7ECA9C;
+  border-left: 3px solid #AAF0D1;
   border-radius: 6px;
   padding: 1rem;
   display: grid;
@@ -765,7 +772,7 @@
   background: rgba(126, 202, 156, 0.2);
   border-radius: 4px;
   font-size: 0.8rem;
-  color: #7ECA9C;
+  color: #AAF0D1;
   white-space: nowrap;
 }
 
@@ -836,7 +843,7 @@
 
 .toggle-btn.active {
   background: rgba(126, 202, 156, 0.15);
-  color: #7ECA9C;
+  color: #AAF0D1;
 }
 
 .real-data-badge {
@@ -910,7 +917,7 @@
 }
 
 .transaction-card:hover {
-  border-color: #7ECA9C;
+  border-color: #AAF0D1;
   transform: translateX(4px);
 }
 
@@ -945,7 +952,7 @@
 .transaction-total {
   font-size: 1.5rem;
   font-weight: 700;
-  color: #7ECA9C;
+  color: #AAF0D1;
 }
 
 .transaction-status {
@@ -989,7 +996,7 @@
 }
 
 .order-link {
-  color: #7ECA9C;
+  color: #AAF0D1;
   text-decoration: none;
   font-size: 0.85rem;
   transition: color 0.2s;
@@ -1035,7 +1042,7 @@
 
 .knot-source {
   font-size: 0.75rem;
-  color: #7ECA9C;
+  color: #AAF0D1;
   text-align: right;
   margin-top: 0.5rem;
 }
@@ -1066,7 +1073,7 @@
 .purchase-total {
   font-size: 1.5rem;
   font-weight: 700;
-  color: #7ECA9C;
+  color: #AAF0D1;
 }
 
 .purchase-details {
@@ -1085,7 +1092,7 @@
 }
 
 .discount-row {
-  color: #7ECA9C;
+  color: #AAF0D1;
 }
 
 .discount-value {
@@ -1100,7 +1107,7 @@
 
 .edgecart-badge {
   font-size: 0.75rem;
-  color: #7ECA9C;
+  color: #AAF0D1;
   text-align: right;
   margin-top: 0.5rem;
 }
@@ -1149,7 +1156,7 @@
 .saving-value {
   font-size: 2.5rem;
   font-weight: 700;
-  color: #7ECA9C;
+  color: #AAF0D1;
   margin-bottom: 0.5rem;
 }
 
@@ -1209,7 +1216,7 @@
   letter-spacing: 0.2em;
   margin-bottom: 0.5rem;
   text-transform: uppercase;
-  background: linear-gradient(135deg, #7ECA9C 0%, #4ade80 100%);
+  background: linear-gradient(135deg, #AAF0D1 0%, #4ade80 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -1365,7 +1372,7 @@
 }
 
 .portal-terminal .terminal-button.close {
-  background: #7ECA9C;
+  background: #AAF0D1;
 }
 
 .portal-terminal .terminal-button.minimize {
@@ -1415,7 +1422,7 @@
 }
 
 .terminal-prompt {
-  color: #7ECA9C;
+  color: #AAF0D1;
   font-size: 0.9rem;
   margin: 0;
   font-family: 'Geist Mono', monospace;
@@ -1439,7 +1446,7 @@
 }
 
 .terminal-prefix {
-  color: #7ECA9C;
+  color: #AAF0D1;
   font-size: 1rem;
   font-weight: 600;
 }
@@ -1506,7 +1513,7 @@
 
 .profile-icon {
   font-size: 1.5rem;
-  color: #7ECA9C;
+  color: #AAF0D1;
   flex-shrink: 0;
 }
 
@@ -1541,7 +1548,7 @@
   align-items: center;
   gap: 0.4rem;
   font-size: 0.7rem;
-  color: #7ECA9C;
+  color: #AAF0D1;
   opacity: 0.7;
 }
 
@@ -1565,10 +1572,23 @@
   --button-default-font-size: 1.05rem !important;
   --button-horizontal-padding: 2.5rem !important;
   --button-raise-level: 6px !important;
-  --button-primary-color: #2a382a !important;
-  --button-primary-color-dark: #1a251a !important;
-  --button-primary-color-light: #3a4a3a !important;
-  --button-primary-color-hover: #2a382a !important;
+  --button-primary-color: #2d3f3d !important;
+  --button-primary-color-dark: #1d2f2d !important;
+  --button-primary-color-light: #3d4f4d !important;
+  --button-primary-color-hover: #2d3f3d !important;
+}
+
+.portal-login-button-wrapper .aws-btn[disabled],
+.portal-login-button-wrapper .aws-btn.aws-btn--active[disabled] {
+  --button-primary-color: #ff8c42 !important;
+  --button-primary-color-dark: #d35400 !important;
+  --button-primary-color-light: #ffa066 !important;
+}
+
+.portal-login-button-wrapper .aws-btn[disabled] .aws-btn__content,
+.portal-login-button-wrapper .aws-btn.aws-btn--active[disabled] .aws-btn__content {
+  background: linear-gradient(135deg, #1a2420 0%, #0f1510 100%) !important;
+  border: 1px solid rgba(126, 202, 156, 0.25) !important;
 }
 
 .portal-login-button-wrapper .aws-btn .aws-btn__wrapper {
@@ -1710,12 +1730,12 @@
 
 /* Terminal-Style Profile Container - Match Login Style */
 .profile-terminal {
-  background: rgba(10, 20, 10, 0.95);
-  border: 1px solid rgba(126, 202, 156, 0.3);
+  background: rgba(5, 8, 5, 0.98);
+  border: 1px solid rgba(126, 202, 156, 0.25);
   border-radius: 12px;
   overflow: hidden;
   backdrop-filter: blur(10px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
 }
 
 .terminal-section {
@@ -1732,7 +1752,7 @@
   gap: 0.5rem;
   margin-bottom: 1rem;
   font-size: 0.95rem;
-  color: #7ECA9C;
+  color: #AAF0D1;
 }
 
 .terminal-command {
@@ -1813,7 +1833,7 @@
 
 .info-label {
   font-size: 0.7rem;
-  color: #7ECA9C;
+  color: #AAF0D1;
   text-transform: lowercase;
   font-family: 'Geist Mono', monospace;
   letter-spacing: 0.05em;
@@ -1826,7 +1846,7 @@
 }
 
 .knot-id-value {
-  color: #7ECA9C;
+  color: #AAF0D1;
   font-family: 'Geist Mono', monospace;
 }
 
@@ -1837,7 +1857,7 @@
   background: rgba(126, 202, 156, 0.1);
   border: 1px solid rgba(126, 202, 156, 0.3);
   border-radius: 6px;
-  color: #7ECA9C;
+  color: #AAF0D1;
   font-family: 'Geist Mono', monospace;
   font-size: 0.9rem;
   font-weight: 500;
@@ -1848,7 +1868,7 @@
 
 .terminal-button-style:hover:not(:disabled) {
   background: rgba(126, 202, 156, 0.2);
-  border-color: #7ECA9C;
+  border-color: #AAF0D1;
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(126, 202, 156, 0.2);
 }
@@ -1959,7 +1979,7 @@
 
 .stat-label {
   font-size: 0.75rem;
-  color: #7ECA9C;
+  color: #AAF0D1;
   text-transform: lowercase;
   font-family: 'Geist Mono', monospace;
   letter-spacing: 0.05em;
@@ -2054,13 +2074,13 @@
 
 .toggle-btn-terminal.active {
   background: rgba(126, 202, 156, 0.15);
-  border-color: #7ECA9C;
-  color: #7ECA9C;
+  border-color: #AAF0D1;
+  color: #AAF0D1;
 }
 
 .real-data-badge-terminal {
   padding: 0.15rem 0.5rem;
-  background: #7ECA9C;
+  background: #AAF0D1;
   color: #0a0f0a;
   border-radius: 10px;
   font-size: 0.65rem;
@@ -2210,10 +2230,10 @@
 }
 
 .dark-container-title {
-  font-size: 1.3rem;
-  color: #7ECA9C;
+  font-size: 1.2rem;
+  color: #AAF0D1;
   font-family: 'Geist Mono', monospace;
-  font-weight: 500;
+  font-weight: 300;
   text-transform: lowercase;
   letter-spacing: 0.05em;
   margin: 0;
@@ -2224,7 +2244,7 @@
   background: rgba(126, 202, 156, 0.1);
   border: 1px solid rgba(126, 202, 156, 0.25);
   border-radius: 20px;
-  color: #7ECA9C;
+  color: #AAF0D1;
   font-family: 'Geist Mono', monospace;
   font-size: 0.75rem;
   font-weight: 500;
@@ -2279,22 +2299,22 @@
 }
 
 .recommendation-card.new {
-  border-color: #7ECA9C;
+  border-color: #AAF0D1;
   box-shadow: 0 4px 16px rgba(126, 202, 156, 0.2);
 }
 
 /* Savings Cards - Darker Style */
 .savings-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1rem;
 }
 
 .saving-card {
   background: rgba(0, 0, 0, 0.4);
   border: 1px solid rgba(126, 202, 156, 0.2);
   border-radius: 8px;
-  padding: 2rem 1.5rem;
+  padding: 1.5rem 1rem;
   text-align: center;
   transition: all 0.3s;
 }
@@ -2306,23 +2326,24 @@
 }
 
 .saving-value {
-  font-size: 2.5rem;
-  color: #7ECA9C;
-  font-weight: 700;
+  font-size: 2rem;
+  color: #AAF0D1;
+  font-weight: 300;
   font-family: 'Geist Mono', monospace;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.4rem;
 }
 
 .saving-label {
-  font-size: 0.85rem;
+  font-size: 0.75rem;
   color: #AAF0D1;
   text-transform: lowercase;
   font-family: 'Geist Mono', monospace;
-  letter-spacing: 0.05em;
+  font-weight: 300;
+  letter-spacing: 0.03em;
 }
 
 .saving-card.impact .saving-value {
-  font-size: 3rem;
+  font-size: 2.5rem;
 }
 
 /* Steps Grid - Darker Style */
@@ -2347,7 +2368,7 @@
 }
 
 .step h3 {
-  color: #7ECA9C;
+  color: #AAF0D1;
   font-family: 'Geist Mono', monospace;
   font-size: 1.1rem;
   margin-bottom: 0.75rem;
@@ -2376,7 +2397,7 @@
 }
 
 .notif-type {
-  color: #7ECA9C;
+  color: #AAF0D1;
   font-family: 'Geist Mono', monospace;
   font-size: 0.85rem;
   text-transform: lowercase;

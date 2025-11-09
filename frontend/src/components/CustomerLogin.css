@@ -135,12 +135,13 @@
 
 .customer-login .ascii-art {
   color: #7ECA9C;
-  font-size: 0.7rem;
+  font-size: 0.55rem;
   line-height: 1.1;
   margin: 0;
   font-family: 'Geist Mono', monospace;
   white-space: pre;
   flex-shrink: 0;
+  opacity: 0.7;
 }
 
 .customer-login .system-info {
@@ -149,18 +150,21 @@
   gap: 0.25rem;
   font-size: 0.75rem;
   flex: 1;
+  font-family: 'Geist Mono', monospace;
 }
 
 .customer-login .info-line {
   display: flex;
   gap: 0.5rem;
-  color: #CCFFBD;
+  color: #AAF0D1;
   line-height: 1.2;
+  font-family: 'Geist Mono', monospace;
+  opacity: 0.8;
 }
 
 .customer-login .info-line.highlight {
   color: #7ECA9C;
-  font-weight: 600;
+  font-weight: 400;
   margin-bottom: 0.1rem;
 }
 
@@ -173,6 +177,7 @@
 .customer-login .info-label {
   color: #7ECA9C;
   min-width: 70px;
+  font-family: 'Geist Mono', monospace;
 }
 
 .customer-login .info-line.highlight .info-label,
@@ -182,6 +187,7 @@
 
 .customer-login .info-value {
   color: #CCFFBD;
+  font-family: 'Geist Mono', monospace;
 }
 
 .customer-login .terminal-line {

@@ -6,10 +6,11 @@ import 'react-awesome-button/dist/styles.css';
 import { IoMdMan, IoMdWoman, IoMdPerson } from 'react-icons/io';
 import { GiStrawberry, GiOrange, GiGrapes, GiCherry, GiBanana, GiWatermelon, GiPineapple, GiLemon, GiPear, GiKiwiFruit, GiPeach } from 'react-icons/gi';
 import { MdEmail, MdShoppingCart, MdStore, MdAttachMoney, MdTrendingUp } from 'react-icons/md';
-import { FaLink, FaShoppingBag } from 'react-icons/fa';
+import { FaLink, FaShoppingBag, FaRobot } from 'react-icons/fa';
 import { FaAppleWhole } from 'react-icons/fa6';
 import FaultyTerminal from './FaultyTerminal';
 import GradientText from './GradientText';
+import ShoppingAssistant from './ShoppingAssistant';
 import './CustomerPortal.css';
 import { config } from '../config';
 import { mockCustomers, mockRecommendations, mockPurchases, mockKnotTransactions } from '../mockData';
@@ -168,6 +169,7 @@ const CustomerPortalContent = () => {
   const [usingRealKnotData, setUsingRealKnotData] = useState(false);
   const [knotConnecting, setKnotConnecting] = useState(false);
   const [knotConnected, setKnotConnected] = useState(false);
+  const [showAssistant, setShowAssistant] = useState(false);
 
   const wsRef = useRef<WebSocket | null>(null);
 
@@ -985,6 +987,14 @@ const CustomerPortalContent = () => {
         </div>
       </header>
 
+      {/* Shopping Assistant - Floating */}
+      <ShoppingAssistant
+        customer={customer}
+        recommendations={recommendations}
+        isOpen={showAssistant}
+        onToggle={() => setShowAssistant(!showAssistant)}
+      />
+
       {/* Main Content */}
       <div className="portal-content">
         {/* Customer Info Section - Terminal Style */}
@@ -1160,8 +1170,12 @@ const CustomerPortalContent = () => {
                   </div>
 
                   <div className="price-display">
-                    <span className="current-price">${((rec.item as any).current_price || 0).toFixed(2)}</span>
-                    <span className="original-price">${((rec.item as any).original_price || 0).toFixed(2)}</span>
+                    <span className="current-price">
+                      <span className="dollar-sign">$</span>{((rec.item as any).current_price || 0).toFixed(2)}
+                    </span>
+                    <span className="original-price">
+                      <span className="dollar-sign">$</span>{((rec.item as any).original_price || 0).toFixed(2)}
+                    </span>
                     <span className="discount-badge">{((rec.item as any).discount_percentage || 0).toFixed(0)}% OFF</span>
                   </div>
 
@@ -1404,11 +1418,11 @@ const CustomerPortalContent = () => {
 
         {/* Savings Summary */}
         <section className="savings-section">
-          <div className="dark-container blue-container">
+          <div className="dark-container">
             <div className="dark-container-header">
               <h2 className="dark-container-title">
                 <GradientText
-                  colors={['#5f27cd', '#a55eea', '#5f27cd']}
+                  colors={['#7ECA9C', '#AAF0D1', '#CCFFBD', '#AAF0D1', '#7ECA9C']}
                   animationSpeed={4}
                   showBorder={false}
                 >
