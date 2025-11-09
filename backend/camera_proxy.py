@@ -26,7 +26,7 @@ def load_config():
     
     # Default configuration
     default_config = {
-        'cloud_backend_url': os.getenv('CLOUD_BACKEND_URL', 'wss://your-backend-domain.com/ws/camera_proxy'),
+        'cloud_backend_url': os.getenv('CLOUD_BACKEND_URL', 'wss://your-backend-domain.com/ws/stream_video'),
         'camera_index': None,  # None = auto-detect
         'fps_target': 30,
         'jpeg_quality': 85
@@ -305,7 +305,7 @@ async def main():
     """Main function"""
     backend_url = CLOUD_BACKEND_URL
     
-    if backend_url == 'wss://your-backend-domain.com/ws/camera_proxy' or 'your-backend-domain.com' in backend_url:
+    if backend_url == 'wss://your-backend-domain.com/ws/stream_video' or 'your-backend-domain.com' in backend_url:
         print("❌ Please configure cloud_backend_url in camera_proxy_config.json")
         print("   Copy template.camera_proxy_config.json to camera_proxy_config.json and update it")
         return

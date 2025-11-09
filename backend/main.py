@@ -93,6 +93,9 @@ from utils.helpers import admin_connections, customer_connections
 # Store frontend video stream connections for broadcasting
 frontend_video_connections = set()
 
+# Shared proxy state (for proxy mode - shared across all proxy connections)
+proxy_state_global = None
+
 # Load fresh detection model globally (once at startup)
 fresh_model = None
 fresh_device = None
@@ -959,30 +962,44 @@ def stream_video_websocket(ws):
             'timestamp': datetime.utcnow().isoformat()
         }))
         
-        # If proxy mode, don't try to open camera - just wait for frames from proxy
+        # Initialize shared state for proxy mode (if in proxy mode)
+        global proxy_state_global
         if is_proxy_mode:
+            # Initialize proxy state only once (shared across all connections)
+            if proxy_state_global is None:
+                proxy_state_global = {
+                    'inventory_cache': {},
+                    'default_store_id': None,
+                    'previous_class_counts': {},
+                    'last_updated_time': {},
+                    'last_detection_time': 0,
+                    'cached_detections': []
+                }
+                
+                # Load initial inventory and get default store
+                with app.app_context():
+                    default_store = Store.query.first()
+                    if not default_store:
+                        default_store = Store(
+                            name="Default Store",
+                            location="Camera Detection",
+                            contact_info="N/A"
+                        )
+                        db.session.add(default_store)
+                        db.session.commit()
+                        print(f"✅ Created default store with ID: {default_store.id}")
+                    proxy_state_global['default_store_id'] = default_store.id
+                    
+                    items = FruitInventory.query.all()
+                    for item in items:
+                        if item.fruit_type not in proxy_state_global['inventory_cache']:
+                            proxy_state_global['inventory_cache'][item.fruit_type] = (item.id, item.quantity)
+            
             print("📹 Proxy mode: Waiting for frames from camera proxy...")
             ws.send(json.dumps({
                 'type': 'info',
-                'message': 'Proxy mode enabled - waiting for camera proxy to send frames'
+                'message': 'Proxy mode enabled - ready to receive frames'
             }))
-            # Just keep connection alive - frames will come from /ws/camera_proxy endpoint
-            # Listen for ping/pong to keep connection alive
-            while True:
-                try:
-                    data = ws.receive()
-                    if data:
-                        try:
-                            message = json.loads(data)
-                            command = message.get('command')
-                            if command == 'ping':
-                                ws.send(json.dumps({'type': 'pong'}))
-                        except json.JSONDecodeError:
-                            pass
-                except Exception:
-                    # Connection closed
-                    break
-            return
         
         def process_frame():
             """Process frames from camera and send to client"""
@@ -1369,7 +1386,275 @@ def stream_video_websocket(ws):
                         }))
                     break
         
-        # Listen for commands from client
+        # Shared function to process proxy frames (used when in proxy mode)
+        def process_proxy_frame(frame_data_base64, state):
+            """Process frame from proxy and broadcast to frontend connections"""
+            import base64
+            import numpy as np
+            
+            try:
+                # Decode base64 frame
+                frame_bytes = base64.b64decode(frame_data_base64)
+                nparr = np.frombuffer(frame_bytes, np.uint8)
+                frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+                
+                if frame is None:
+                    print("⚠️ Failed to decode frame from proxy")
+                    return
+                
+                # Rate limit detection (only run every 0.25 seconds)
+                current_time = time.time()
+                detection_delta = 0.25
+                update_delta = 1.0
+                time_since_last_detection = current_time - state['last_detection_time']
+                
+                if time_since_last_detection >= detection_delta:
+                    # Run detection
+                    result = detect(frame, allowed_classes=['apple', 'banana', 'orange'], save=False, verbose=False)
+                    detections = result['detections']
+                    
+                    # Process each detection and add freshness scores
+                    processed_detections = []
+                    min_confidence = 0.6
+                    
+                    for detection in detections:
+                        if detection['confidence'] < min_confidence:
+                            continue
+                        
+                        bbox = detection['bbox']
+                        class_name = detection['class']
+                        confidence = detection['confidence']
+                        
+                        # Get freshness score if model is loaded
+                        freshness_score = None
+                        cropped = None
+                        if fresh_model is not None:
+                            cropped = crop_bounding_box(frame, bbox)
+                            if cropped is not None:
+                                freshness_score = get_freshness_score(cropped, fresh_model, fresh_device, fresh_transform)
+                        else:
+                            cropped = crop_bounding_box(frame, bbox)
+                        
+                        # Store cropped image and metadata
+                        if cropped is not None:
+                            metadata = {
+                                'confidence': float(confidence),
+                                'freshness_score': float(freshness_score) if freshness_score is not None else None,
+                                'timestamp': datetime.utcnow().isoformat(),
+                                'bbox': bbox
+                            }
+                            processed_detections.append({
+                                'bbox': bbox,
+                                'class': class_name,
+                                'confidence': float(confidence),
+                                'freshness_score': float(freshness_score) if freshness_score is not None else None,
+                                'cropped_image': cropped,
+                                'metadata': metadata
+                            })
+                        else:
+                            processed_detections.append({
+                                'bbox': bbox,
+                                'class': class_name,
+                                'confidence': float(confidence),
+                                'freshness_score': float(freshness_score) if freshness_score is not None else None
+                            })
+                    
+                    # Update cache and detection time
+                    state['cached_detections'] = processed_detections
+                    state['last_detection_time'] = current_time
+                    
+                    # Count detected classes and collect freshness scores
+                    current_class_counts = {}
+                    freshness_scores_by_type = {}
+                    
+                    for det in processed_detections:
+                        class_name = det['class']
+                        current_class_counts[class_name] = current_class_counts.get(class_name, 0) + 1
+                        
+                        if det.get('freshness_score') is not None:
+                            if class_name not in freshness_scores_by_type:
+                                freshness_scores_by_type[class_name] = []
+                            freshness_scores_by_type[class_name].append(det['freshness_score'])
+                    
+                    # Calculate average freshness scores per fruit type
+                    freshness_updates = {}
+                    for fruit_type, freshness_scores in freshness_scores_by_type.items():
+                        valid_scores = [score for score in freshness_scores if score is not None]
+                        if valid_scores and len(valid_scores) > 0:
+                            avg_freshness = (sum(valid_scores) / len(valid_scores)) / 100.0
+                            freshness_updates[fruit_type] = round(avg_freshness, 4)
+                    
+                    # Compare with previous counts and update database
+                    updates_to_process = []
+                    all_fruit_types = set(current_class_counts.keys()) | set(state['previous_class_counts'].keys())
+                    
+                    for fruit_type in all_fruit_types:
+                        current_count = current_class_counts.get(fruit_type, 0)
+                        previous_count = state['previous_class_counts'].get(fruit_type, 0)
+                        
+                        # Check if enough time has passed since last update
+                        if state['last_updated_time'].get(fruit_type) is None:
+                            state['last_updated_time'][fruit_type] = current_time
+                        else:
+                            time_since_last_update = current_time - state['last_updated_time'].get(fruit_type)
+                            if time_since_last_update < update_delta:
+                                continue
+                            else:
+                                state['last_updated_time'][fruit_type] = current_time
+                        
+                        # Handle count changes
+                        if current_count != previous_count:
+                            # Handle image storage
+                            if current_count > 0:
+                                fruit_images = []
+                                for det in processed_detections:
+                                    if det.get('class') == fruit_type and 'cropped_image' in det:
+                                        fruit_images.append((det['cropped_image'], det.get('metadata', {})))
+                                
+                                if fruit_images:
+                                    threading.Thread(
+                                        target=replace_category_images,
+                                        args=(fruit_images, fruit_type),
+                                        daemon=True
+                                    ).start()
+                            else:
+                                threading.Thread(
+                                    target=delete_category_images,
+                                    args=(fruit_type,),
+                                    daemon=True
+                                ).start()
+                            
+                            # Prepare database update
+                            if fruit_type in state['inventory_cache']:
+                                item_id, old_quantity = state['inventory_cache'][fruit_type]
+                                updates_to_process.append({
+                                    'type': 'update',
+                                    'item_id': item_id,
+                                    'fruit_type': fruit_type,
+                                    'old_quantity': old_quantity,
+                                    'new_quantity': current_count,
+                                    'freshness_score': freshness_updates.get(fruit_type) if current_count > 0 else None
+                                })
+                            else:
+                                updates_to_process.append({
+                                    'type': 'create',
+                                    'fruit_type': fruit_type,
+                                    'quantity': current_count,
+                                    'store_id': state['default_store_id'],
+                                    'freshness_score': freshness_updates.get(fruit_type) if current_count > 0 else None,
+                                    'thumbnail_image': processed_detections[0].get('cropped_image') if processed_detections else None
+                                })
+                        
+                        # Handle freshness-only updates
+                        elif fruit_type in freshness_updates and fruit_type in state['inventory_cache']:
+                            item_id, _ = state['inventory_cache'][fruit_type]
+                            updates_to_process.append({
+                                'type': 'freshness_only',
+                                'item_id': item_id,
+                                'fruit_type': fruit_type,
+                                'freshness_score': freshness_updates[fruit_type]
+                            })
+                    
+                    # Process all updates in a single database transaction
+                    if updates_to_process:
+                        with app.app_context():
+                            for update in updates_to_process:
+                                if update['type'] == 'update':
+                                    db_item = db.session.get(FruitInventory, update['item_id'])
+                                    if db_item:
+                                        db_item.quantity = update['new_quantity']
+                                        db_item.updated_at = datetime.utcnow()
+                                        notify_quantity_change(db_item, update['old_quantity'], update['new_quantity'])
+                                        
+                                        if update.get('freshness_score') is not None:
+                                            update_freshness_for_item(db_item.id, update['freshness_score'])
+                                        
+                                        state['inventory_cache'][update['fruit_type']] = (db_item.id, update['new_quantity'])
+                                
+                                elif update['type'] == 'create':
+                                    timestamp = datetime.utcnow()
+                                    random_suffix = random.randint(1000, 9999)
+                                    batch_number = f"BATCH-{timestamp.strftime('%Y%m%d')}-{random_suffix}"
+                                    
+                                    thumbnail_path = None
+                                    if update.get('thumbnail_image') is not None:
+                                        thumbnail_path = save_thumbnail(update['thumbnail_image'], update['fruit_type'])
+                                    
+                                    new_item = FruitInventory(
+                                        store_id=update['store_id'],
+                                        fruit_type=update['fruit_type'],
+                                        quantity=update['quantity'],
+                                        original_price=5.99,
+                                        current_price=5.99,
+                                        location_in_store="Camera Detection",
+                                        batch_number=batch_number,
+                                        thumbnail_path=thumbnail_path
+                                    )
+                                    db.session.add(new_item)
+                                    db.session.flush()
+                                    state['inventory_cache'][update['fruit_type']] = (new_item.id, update['quantity'])
+                                    
+                                    if update.get('freshness_score') is not None:
+                                        update_freshness_for_item(new_item.id, update['freshness_score'])
+                                    
+                                    item_data = notify_quantity_change(new_item, 0, update['quantity'])
+                                    broadcast_to_admins('inventory_added', item_data)
+                                
+                                elif update['type'] == 'freshness_only':
+                                    update_freshness_for_item(update['item_id'], update['freshness_score'])
+                            
+                            db.session.commit()
+                        
+                        # Update previous counts
+                        for update in updates_to_process:
+                            fruit_type = update.get('fruit_type')
+                            if fruit_type:
+                                if update['type'] in ['update', 'create']:
+                                    state['previous_class_counts'][fruit_type] = update.get('new_quantity', update.get('quantity', 0))
+                                elif update['type'] == 'freshness_only':
+                                    state['previous_class_counts'][fruit_type] = current_class_counts.get(fruit_type, 0)
+                else:
+                    # Use cached detections
+                    processed_detections = state['cached_detections']
+                
+                # Prepare detections for sending
+                clean_detections = []
+                for det in processed_detections:
+                    clean_detections.append({
+                        'bbox': det['bbox'],
+                        'class': det['class'],
+                        'confidence': det['confidence'],
+                        'freshness_score': det.get('freshness_score')
+                    })
+                
+                # Encode frame to JPEG
+                _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+                frame_bytes = buffer.tobytes()
+                
+                # Broadcast to all frontend connections
+                num_connections = len(frontend_video_connections)
+                if num_connections > 0:
+                    for frontend_ws in list(frontend_video_connections):
+                        try:
+                            metadata_json = json.dumps({
+                                'type': 'frame_meta',
+                                'detections': clean_detections,
+                                'fps': 0.0,
+                                'frame_size': len(frame_bytes),
+                                'timestamp': datetime.utcnow().isoformat()
+                            })
+                            frontend_ws.send(metadata_json)
+                            frontend_ws.send(frame_bytes)
+                        except Exception as e:
+                            frontend_video_connections.discard(frontend_ws)
+                            print(f"⚠️ Removed dead frontend connection: {e}")
+                
+            except Exception as e:
+                print(f"❌ Error processing proxy frame: {e}")
+                import traceback
+                traceback.print_exc()
+        
+        # Listen for commands from client (or frames from proxy if in proxy mode)
         while True:
             data = ws.receive()
             if not data:
@@ -1377,9 +1662,35 @@ def stream_video_websocket(ws):
             
             try:
                 message = json.loads(data)
+                msg_type = message.get('type')
                 command = message.get('command')
                 
-                if command == 'start':
+                # Handle proxy frames (when in proxy mode)
+                if is_proxy_mode and msg_type == 'frame':
+                    frame_data = message.get('data')
+                    if frame_data and proxy_state_global:
+                        threading.Thread(
+                            target=process_proxy_frame,
+                            args=(frame_data, proxy_state_global),
+                            daemon=True
+                        ).start()
+                    continue
+                
+                # Handle proxy connection acknowledgment
+                if is_proxy_mode and msg_type == 'proxy_connected':
+                    ws.send(json.dumps({
+                        'type': 'ack',
+                        'message': 'Proxy connection acknowledged'
+                    }))
+                    continue
+                
+                # Handle ping/pong
+                if msg_type == 'ping':
+                    ws.send(json.dumps({'type': 'pong'}))
+                    continue
+                
+                # Handle frontend commands (local mode only)
+                if not is_proxy_mode and command == 'start':
                     if camera is not None:
                         ws.send(json.dumps({
                             'type': 'error',
@@ -1450,177 +1761,6 @@ def stream_video_websocket(ws):
                 pass
             camera = None
         print("Video stream WebSocket disconnected")
-
-
-@sock.route('/ws/camera_proxy')
-def camera_proxy_websocket(ws):
-    """WebSocket endpoint for camera proxy - receives frames from laptop and processes them"""
-    import base64
-    import numpy as np
-    
-    proxy_connected = False
-    processing_thread = None
-    
-    try:
-        # Send welcome message
-        ws.send(json.dumps({
-            'type': 'connected',
-            'message': 'Camera proxy endpoint ready',
-            'timestamp': datetime.utcnow().isoformat()
-        }))
-        
-        def process_proxy_frame(frame_data_base64):
-            """Process frame from proxy and broadcast to frontend connections"""
-            try:
-                # Decode base64 frame
-                frame_bytes = base64.b64decode(frame_data_base64)
-                nparr = np.frombuffer(frame_bytes, np.uint8)
-                frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-                
-                if frame is None:
-                    print("⚠️ Failed to decode frame from proxy")
-                    return
-                
-                # Use the same processing logic as stream_video_websocket
-                # Suppress YOLO verbose output
-                result = detect(frame, allowed_classes=['apple', 'banana', 'orange'], save=False, verbose=False)
-                detections = result['detections']
-                
-                if len(frontend_video_connections) == 0:
-                    # No frontend connections, skip processing
-                    return
-                
-                # Process detections with freshness scores
-                processed_detections = []
-                min_confidence = 0.6
-                
-                for detection in detections:
-                    if detection['confidence'] < min_confidence:
-                        continue
-                    
-                    bbox = detection['bbox']
-                    class_name = detection['class']
-                    confidence = detection['confidence']
-                    
-                    # Get freshness score if model is loaded
-                    freshness_score = None
-                    if fresh_model is not None:
-                        cropped = crop_bounding_box(frame, bbox)
-                        if cropped is not None:
-                            freshness_score = get_freshness_score(cropped, fresh_model, fresh_device, fresh_transform)
-                    
-                    processed_detections.append({
-                        'bbox': bbox,
-                        'class': class_name,
-                        'confidence': float(confidence),
-                        'freshness_score': float(freshness_score) if freshness_score is not None else None
-                    })
-                
-                # Encode frame to JPEG
-                _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
-                frame_bytes = buffer.tobytes()
-                
-                # Broadcast to all frontend connections
-                clean_detections = []
-                for det in processed_detections:
-                    clean_detections.append({
-                        'bbox': det['bbox'],
-                        'class': det['class'],
-                        'confidence': det['confidence'],
-                        'freshness_score': det.get('freshness_score')
-                    })
-                
-                # Remove closed connections
-                frontend_video_connections.discard(None)
-                dead_connections = [conn for conn in frontend_video_connections if not hasattr(conn, 'send')]
-                for conn in dead_connections:
-                    frontend_video_connections.discard(conn)
-                
-                # Broadcast to all frontend connections
-                num_connections = len(frontend_video_connections)
-                if num_connections > 0:
-                    print(f"📤 Broadcasting to {num_connections} frontend connection(s) - {len(clean_detections)} detections, frame size: {len(frame_bytes)} bytes")
-                
-                for frontend_ws in list(frontend_video_connections):
-                    try:
-                        # Send metadata (JSON string)
-                        metadata_json = json.dumps({
-                            'type': 'frame_meta',
-                            'detections': clean_detections,
-                            'fps': 0.0,  # Could calculate from proxy if needed
-                            'frame_size': len(frame_bytes),
-                            'timestamp': datetime.utcnow().isoformat()
-                        })
-                        frontend_ws.send(metadata_json)
-                        
-                        # Send binary frame - Flask-Sock should handle bytes
-                        # If this fails, we might need to base64 encode it
-                        frontend_ws.send(frame_bytes)
-                    except Exception as e:
-                        # Remove dead connection
-                        frontend_video_connections.discard(frontend_ws)
-                        print(f"⚠️ Removed dead frontend connection: {e}")
-                        import traceback
-                        traceback.print_exc()
-                
-            except Exception as e:
-                print(f"❌ Error processing proxy frame: {e}")
-                import traceback
-                traceback.print_exc()
-        
-        # Listen for frames from proxy
-        proxy_connected = True
-        print("📹 Camera proxy connected")
-        
-        while proxy_connected:
-            try:
-                data = ws.receive()
-                if not data:
-                    continue
-                
-                try:
-                    message = json.loads(data)
-                    msg_type = message.get('type')
-                    
-                    if msg_type == 'frame':
-                        # Process frame in background thread
-                        frame_data = message.get('data')
-                        if frame_data:
-                            frame_id = message.get('frame_id', 'unknown')
-                            # print(f"📥 Received frame {frame_id} from proxy ({len(frame_data)} chars base64)")
-                            threading.Thread(
-                                target=process_proxy_frame,
-                                args=(frame_data,),
-                                daemon=True
-                            ).start()
-                        else:
-                            print("⚠️ Received frame message but no data field")
-                    
-                    elif msg_type == 'proxy_connected':
-                        # Acknowledge proxy connection
-                        ws.send(json.dumps({
-                            'type': 'ack',
-                            'message': 'Proxy connection acknowledged'
-                        }))
-                    
-                    elif msg_type == 'ping':
-                        ws.send(json.dumps({'type': 'pong'}))
-                    
-                except json.JSONDecodeError:
-                    print("⚠️ Invalid JSON from camera proxy")
-                    
-            except Exception as e:
-                if proxy_connected:
-                    print(f"❌ Camera proxy error: {e}")
-                break
-        
-    except Exception as e:
-        print(f"❌ Camera proxy WebSocket error: {e}")
-        import traceback
-        traceback.print_exc()
-    finally:
-        proxy_connected = False
-        print("📹 Camera proxy disconnected")
 
 
 # ============ Error Handlers ============

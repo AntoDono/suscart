@@ -49,7 +49,7 @@ Edit `camera_proxy_config.json` with your settings:
 
 ```json
 {
-  "cloud_backend_url": "wss://your-backend-domain.com/ws/camera_proxy",
+  "cloud_backend_url": "wss://your-backend-domain.com/ws/stream_video",
   "camera_index": null,
   "fps_target": 30,
   "jpeg_quality": 85
@@ -83,13 +83,15 @@ The script will:
 ### Camera Proxy (`camera_proxy.py`)
 - Reads camera using OpenCV (local access)
 - Encodes frames as JPEG (base64)
-- Sends frames to cloud backend via WebSocket
+- Sends frames to cloud backend via WebSocket (`/ws/stream_video`)
 - Handles connection errors and retries
 
-### Cloud Backend (`/ws/camera_proxy` endpoint)
-- Receives frames from proxy
+### Cloud Backend (`/ws/stream_video` endpoint)
+- **Proxy mode**: Receives frames from camera proxy, processes them, broadcasts to frontend
+- **Local mode**: Reads from local camera, processes frames, sends to frontend
 - Processes frames with YOLO detection
 - Runs freshness analysis
+- Updates database with inventory changes
 - Broadcasts processed frames to all frontend connections
 
 ### Frontend (`/ws/stream_video` endpoint)

@@ -1,5 +1,5 @@
 {
-  "cloud_backend_url": "wss://your-backend-domain.com/ws/camera_proxy",
+  "cloud_backend_url": "wss://your-backend-domain.com/ws/stream_video",
   "camera_index": null,
   "fps_target": 30,
   "jpeg_quality": 85
