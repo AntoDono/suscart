@@ -96,6 +96,10 @@ frontend_video_connections = set()
 # Shared proxy state (for proxy mode - shared across all proxy connections)
 proxy_state_global = None
 
+# Global in-memory cache for detection images (category -> list of detection dicts with cropped_image)
+# Images are stored here before being saved to disk
+category_images_memory_cache = {}
+
 # Load fresh detection model globally (once at startup)
 fresh_model = None
 fresh_device = None
@@ -318,9 +322,15 @@ def get_critical_items():
 def get_detection_images(category):
     """Get all detection images for a category and run blemish detection"""
     try:
+        # FIRST: Save images from memory to disk before fetching
+        _save_memory_images_to_disk(category)
+        
         images = get_category_images(category.lower())
         # Only get processed images (images stay in memory until processed)
         detection_images = [img for img in images if img['filename'].startswith('processed_')]
+        
+        # Limit to top 3 images for blemish processing
+        detection_images = detection_images[:3]
         
         # Run blemish detection on each image
         images_with_blemishes = []
@@ -372,14 +382,47 @@ def get_detection_images(category):
         return jsonify({'error': str(e)}), 500
 
 
+def _save_memory_images_to_disk(category: str):
+    """Save images from memory cache to disk before fetching"""
+    category_lower = category.lower()
+    if category_lower not in category_images_memory_cache:
+        return
+    
+    memory_images = category_images_memory_cache[category_lower]
+    if not memory_images:
+        return
+    
+    # Save each image from memory to disk
+    for detection in memory_images:
+        if 'cropped_image' in detection and detection['cropped_image'] is not None:
+            # Save to disk as processed image
+            save_processed_image(
+                detection['cropped_image'],
+                category_lower,
+                detection.get('metadata')
+            )
+    
+    # Clear memory cache after saving (images are now on disk)
+    category_images_memory_cache[category_lower] = []
+
+
 @app.route('/api/detection-images/<category>/stream', methods=['GET'])
 def get_detection_images_stream(category):
     """Get detection images with progress updates via Server-Sent Events"""
     def generate():
         try:
+            # Send initial connection message
+            yield f"data: {json.dumps({'type': 'connected', 'message': 'SSE connection established'})}\n\n"
+            
+            # FIRST: Save images from memory to disk before fetching
+            _save_memory_images_to_disk(category)
+            
             images = get_category_images(category.lower())
             # Only get processed images (images stay in memory until processed)
             detection_images = [img for img in images if img['filename'].startswith('processed_')]
+            
+            # Limit to top 3 images for blemish processing
+            detection_images = detection_images[:3]
             total_images = len(detection_images)
             
             if total_images == 0:
@@ -440,7 +483,18 @@ def get_detection_images_stream(category):
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
     
-    return Response(stream_with_context(generate()), mimetype='text/event-stream')
+    # Create response with proper SSE headers
+    response = Response(
+        stream_with_context(generate()),
+        mimetype='text/event-stream',
+        headers={
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'X-Accel-Buffering': 'no'  # Disable buffering for nginx if used
+        }
+    )
+    return response
 
 
 @app.route('/api/detection-images', methods=['GET'])
@@ -1027,14 +1081,21 @@ def _process_detections(frame, detections, min_confidence=0.6):
                 'timestamp': datetime.utcnow().isoformat(),
                 'bbox': bbox
             }
-            processed_detections.append({
+            detection_dict = {
                 'bbox': bbox,
                 'class': class_name,
                 'confidence': float(confidence),
                 'freshness_score': float(freshness_score) if freshness_score is not None else None,
                 'cropped_image': cropped,
                 'metadata': metadata
-            })
+            }
+            processed_detections.append(detection_dict)
+            
+            # Store in global memory cache (images stay in memory until processed)
+            category = class_name.lower()
+            if category not in category_images_memory_cache:
+                category_images_memory_cache[category] = []
+            category_images_memory_cache[category].append(detection_dict)
         else:
             processed_detections.append({
                 'bbox': bbox,

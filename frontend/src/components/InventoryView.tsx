@@ -337,17 +337,49 @@ const InventoryView = () => {
       eventSourceRef.current = null;
     }
     
+    let fallbackAttempted = false;
+    const attemptFallback = async () => {
+      if (fallbackAttempted) return;
+      fallbackAttempted = true;
+      
+      try {
+        const response = await fetch(`${config.apiUrl}/api/detection-images/${category}`);
+        if (response.ok) {
+          const data = await response.json();
+          setSelectedItemImages(data.images || []);
+        } else {
+          setSelectedItemImages([]);
+        }
+      } catch (fetchError) {
+        console.error('Failed to fetch category images:', fetchError);
+        setSelectedItemImages([]);
+      } finally {
+        setLoadingImages(false);
+        setLoadingProgress(0);
+      }
+    };
+    
     try {
       // Use Server-Sent Events for progress updates
       // Note: EventSource doesn't support custom headers, so CORS must be handled server-side
       const eventSource = new EventSource(`${config.apiUrl}/api/detection-images/${category}/stream`);
       eventSourceRef.current = eventSource;
       
+      let hasReceivedData = false;
+      
+      eventSource.onopen = () => {
+        hasReceivedData = true;
+      };
+      
       eventSource.onmessage = (event) => {
+        hasReceivedData = true;
         try {
           const data = JSON.parse(event.data);
           
-          if (data.type === 'progress') {
+          if (data.type === 'connected') {
+            // Connection established, ready to receive data
+            console.log('SSE connection established');
+          } else if (data.type === 'progress') {
             setLoadingProgress(data.progress);
           } else if (data.type === 'complete') {
             setLoadingProgress(100);
@@ -371,44 +403,26 @@ const InventoryView = () => {
         }
       };
       
-      eventSource.onerror = (error) => {
-        console.error('SSE connection error:', error);
+      eventSource.onerror = () => {
+        // Only log error if we haven't received any data (connection failed immediately)
+        // If we received data, the connection might have closed normally
+        if (!hasReceivedData && eventSource.readyState === EventSource.CLOSED) {
+          console.warn('SSE connection failed, falling back to regular API');
+        }
+        
         eventSource.close();
         eventSourceRef.current = null;
-        // Fallback to regular API call
-        fetch(`${config.apiUrl}/api/detection-images/${category}`)
-          .then(response => response.json())
-          .then(data => {
-            setSelectedItemImages(data.images || []);
-            setLoadingImages(false);
-            setLoadingProgress(0);
-          })
-          .catch(e => {
-            console.error('Failed to fetch category images:', e);
-            setSelectedItemImages([]);
-            setLoadingImages(false);
-            setLoadingProgress(0);
-          });
+        
+        // Fallback to regular API call if connection failed before receiving data
+        if (!hasReceivedData) {
+          attemptFallback();
+        }
       };
       
     } catch (e) {
       console.error('Failed to setup SSE connection:', e);
       // Fallback to regular API call
-    try {
-      const response = await fetch(`${config.apiUrl}/api/detection-images/${category}`);
-      if (response.ok) {
-        const data = await response.json();
-        setSelectedItemImages(data.images || []);
-      } else {
-        setSelectedItemImages([]);
-      }
-      } catch (fetchError) {
-        console.error('Failed to fetch category images:', fetchError);
-      setSelectedItemImages([]);
-    } finally {
-      setLoadingImages(false);
-        setLoadingProgress(0);
-      }
+      await attemptFallback();
     }
   };
 
