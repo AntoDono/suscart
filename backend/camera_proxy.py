@@ -124,9 +124,26 @@ class CameraProxy:
             print(f"❌ Failed to connect to backend: {e}")
             return False
     
+    def is_ws_connected(self):
+        """Check if WebSocket connection is still open"""
+        if self.ws is None:
+            return False
+        try:
+            # For websockets library, check closed property
+            # If it doesn't exist, assume connection is open (will fail on send if closed)
+            closed = getattr(self.ws, 'closed', None)
+            if closed is None:
+                # Try to check connection state differently
+                return True  # Assume open, actual send will fail if closed
+            return not closed
+        except (AttributeError, Exception):
+            # If we can't check, assume connection is open
+            # The actual send will fail if it's closed
+            return True
+    
     async def send_frame(self, frame):
         """Send frame to backend"""
-        if self.ws is None or self.ws.closed:
+        if not self.is_ws_connected():
             return False
         
         try:
@@ -143,6 +160,10 @@ class CameraProxy:
             
             self.frame_count += 1
             return True
+        except (websockets.exceptions.ConnectionClosed, AttributeError) as e:
+            print(f"⚠️ WebSocket connection closed: {e}")
+            self.running = False
+            return False
         except Exception as e:
             print(f"❌ Error sending frame: {e}")
             return False
@@ -179,6 +200,7 @@ class CameraProxy:
         """Main loop: read camera and send frames"""
         frame_interval = 1.0 / FPS_TARGET
         last_frame_time = 0
+        frames_read = 0
         
         while self.running:
             try:
@@ -196,19 +218,28 @@ class CameraProxy:
                     await asyncio.sleep(0.1)
                     continue
                 
+                frames_read += 1
+                
                 # Send frame to backend
-                await self.send_frame(frame)
+                success = await self.send_frame(frame)
+                if not success:
+                    print(f"⚠️ Failed to send frame {frames_read}")
                 
                 last_frame_time = current_time
                 
-                # Print FPS every 30 frames
-                if self.frame_count % 30 == 0:
+                # Print FPS every 30 frames (but only if we've sent at least 1 frame)
+                if self.frame_count > 0 and self.frame_count % 30 == 0:
                     elapsed = current_time - self.start_time if self.start_time else 1
                     fps = self.frame_count / elapsed if elapsed > 0 else 0
-                    print(f"📊 Sent {self.frame_count} frames ({fps:.1f} FPS)")
+                    print(f"📊 Sent {self.frame_count} frames ({fps:.1f} FPS) | Read {frames_read} frames from camera")
+                elif frames_read == 1:
+                    # Print on first frame read
+                    print(f"✅ Started reading frames from camera...")
                 
             except Exception as e:
                 print(f"❌ Error in stream loop: {e}")
+                import traceback
+                traceback.print_exc()
                 await asyncio.sleep(0.1)
     
     async def run(self):
@@ -249,8 +280,12 @@ class CameraProxy:
         finally:
             self.running = False
             self.release_camera()
-            if self.ws and not self.ws.closed:
-                await self.ws.close()
+            if self.ws:
+                try:
+                    if self.is_ws_connected():
+                        await self.ws.close()
+                except Exception as e:
+                    print(f"⚠️ Error closing WebSocket: {e}")
             print("👋 Camera proxy stopped")
 
 async def main():
