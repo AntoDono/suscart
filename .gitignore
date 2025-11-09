@@ -1,7 +1,7 @@
 venv
 __pycache__
 data
-fresh-*-classification.zip  
+fresh-*-classification.zip
 .DS_Store
 *.pyc
 .env
@@ -11,3 +11,4 @@ fresh-*-classification.zip
 /frontend/node_modules
 instance/
 detection_images/
+*.mov
