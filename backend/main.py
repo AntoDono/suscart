@@ -973,7 +973,10 @@ def stream_video_websocket(ws):
                     'previous_class_counts': {},
                     'last_updated_time': {},
                     'last_detection_time': 0,
-                    'cached_detections': []
+                    'cached_detections': [],
+                    'frame_times': [],  # For FPS calculation
+                    'last_frame_time': time.time(),  # Track last frame processing time
+                    'fps_window_size': 30  # Number of frames to average for FPS
                 }
                 
                 # Load initial inventory and get default store
@@ -1275,6 +1278,48 @@ def stream_video_websocket(ws):
                                             # Update freshness if provided
                                             if update.get('freshness_score') is not None:
                                                 update_freshness_for_item(db_item.id, update['freshness_score'])
+                                            
+                                            # Update cache
+                                            inventory_cache[update['fruit_type']] = (db_item.id, update['new_quantity'])
+                                        else:
+                                            # Item was deleted, remove from cache and create new one
+                                            inventory_cache.pop(update['fruit_type'], None)
+                                            
+                                            # Get thumbnail image for the fruit type
+                                            thumbnail_image = None
+                                            for det in processed_detections:
+                                                if det.get('class') == update['fruit_type'] and 'cropped_image' in det:
+                                                    thumbnail_image = det['cropped_image']
+                                                    break
+                                            
+                                            # Create new item
+                                            timestamp = datetime.utcnow()
+                                            random_suffix = random.randint(1000, 9999)
+                                            batch_number = f"BATCH-{timestamp.strftime('%Y%m%d')}-{random_suffix}"
+                                            
+                                            thumbnail_path = None
+                                            if thumbnail_image is not None:
+                                                thumbnail_path = save_thumbnail(thumbnail_image, update['fruit_type'])
+                                            
+                                            new_item = FruitInventory(
+                                                store_id=default_store_id,
+                                                fruit_type=update['fruit_type'],
+                                                quantity=update['new_quantity'],
+                                                original_price=5.99,
+                                                current_price=5.99,
+                                                location_in_store="Camera Detection",
+                                                batch_number=batch_number,
+                                                thumbnail_path=thumbnail_path
+                                            )
+                                            db.session.add(new_item)
+                                            db.session.flush()
+                                            inventory_cache[update['fruit_type']] = (new_item.id, update['new_quantity'])
+                                            
+                                            if update.get('freshness_score') is not None:
+                                                update_freshness_for_item(new_item.id, update['freshness_score'])
+                                            
+                                            item_data = notify_quantity_change(new_item, 0, update['new_quantity'])
+                                            broadcast_to_admins('inventory_added', item_data)
                                     elif update['type'] == 'create':
                                         # Generate time-based random batch number
                                         timestamp = datetime.utcnow()
@@ -1577,6 +1622,45 @@ def stream_video_websocket(ws):
                                             update_freshness_for_item(db_item.id, update['freshness_score'])
                                         
                                         state['inventory_cache'][update['fruit_type']] = (db_item.id, update['new_quantity'])
+                                    else:
+                                        # Item was deleted, remove from cache and create new one
+                                        state['inventory_cache'].pop(update['fruit_type'], None)
+                                        
+                                        # Get thumbnail image for the fruit type
+                                        thumbnail_image = None
+                                        for det in processed_detections:
+                                            if det.get('class') == update['fruit_type'] and 'cropped_image' in det:
+                                                thumbnail_image = det['cropped_image']
+                                                break
+                                        
+                                        # Create new item
+                                        timestamp = datetime.utcnow()
+                                        random_suffix = random.randint(1000, 9999)
+                                        batch_number = f"BATCH-{timestamp.strftime('%Y%m%d')}-{random_suffix}"
+                                        
+                                        thumbnail_path = None
+                                        if thumbnail_image is not None:
+                                            thumbnail_path = save_thumbnail(thumbnail_image, update['fruit_type'])
+                                        
+                                        new_item = FruitInventory(
+                                            store_id=state['default_store_id'],
+                                            fruit_type=update['fruit_type'],
+                                            quantity=update['new_quantity'],
+                                            original_price=5.99,
+                                            current_price=5.99,
+                                            location_in_store="Camera Detection",
+                                            batch_number=batch_number,
+                                            thumbnail_path=thumbnail_path
+                                        )
+                                        db.session.add(new_item)
+                                        db.session.flush()
+                                        state['inventory_cache'][update['fruit_type']] = (new_item.id, update['new_quantity'])
+                                        
+                                        if update.get('freshness_score') is not None:
+                                            update_freshness_for_item(new_item.id, update['freshness_score'])
+                                        
+                                        item_data = notify_quantity_change(new_item, 0, update['new_quantity'])
+                                        broadcast_to_admins('inventory_added', item_data)
                                 
                                 elif update['type'] == 'create':
                                     timestamp = datetime.utcnow()
@@ -1634,6 +1718,22 @@ def stream_video_websocket(ws):
                         'freshness_score': det.get('freshness_score')
                     })
                 
+                # Calculate FPS
+                current_frame_time = time.time()
+                frame_time = current_frame_time - state['last_frame_time']
+                state['last_frame_time'] = current_frame_time
+                
+                state['frame_times'].append(frame_time)
+                window_size = state.get('fps_window_size', 30)
+                if len(state['frame_times']) > window_size:
+                    state['frame_times'].pop(0)
+                
+                if len(state['frame_times']) > 0:
+                    avg_frame_time = sum(state['frame_times']) / len(state['frame_times'])
+                    fps = 1.0 / avg_frame_time if avg_frame_time > 0 else 0.0
+                else:
+                    fps = 0.0
+                
                 # Encode frame to JPEG
                 _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
                 frame_bytes = buffer.tobytes()
@@ -1646,7 +1746,7 @@ def stream_video_websocket(ws):
                             metadata_json = json.dumps({
                                 'type': 'frame_meta',
                                 'detections': clean_detections,
-                                'fps': 0.0,
+                                'fps': round(fps, 2),
                                 'frame_size': len(frame_bytes),
                                 'timestamp': datetime.utcnow().isoformat()
                             })
