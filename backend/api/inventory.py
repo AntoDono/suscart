@@ -229,15 +229,18 @@ def register_inventory_routes(app):
                     for idx, item in enumerate(items_to_process):
                         fruit_type = item.fruit_type.lower()
                         
-                        # Send progress update
-                        progress = int((idx / total_items) * 100)
-                        yield f"data: {json.dumps({'type': 'progress', 'progress': progress, 'current': idx + 1, 'total': total_items, 'item': item.fruit_type, 'message': f'Processing {item.fruit_type}...'})}\n\n"
+                        # Send progress update before processing
+                        progress_before = int((idx / total_items) * 100)
+                        yield f"data: {json.dumps({'type': 'progress', 'progress': progress_before, 'current': idx + 1, 'total': total_items, 'item': item.fruit_type, 'message': f'Processing {item.fruit_type}...'})}\n\n"
                         
                         # Get detection images for this fruit type
                         images = get_category_images(fruit_type)
                         detection_images = [img for img in images if not img['filename'].startswith('thumbnail.')]
                         
                         if not detection_images:
+                            # Send progress update after completion (even if no images)
+                            progress_after = int(((idx + 1) / total_items) * 100)
+                            yield f"data: {json.dumps({'type': 'progress', 'progress': progress_after, 'current': idx + 1, 'total': total_items, 'item': item.fruit_type, 'message': f'Completed {item.fruit_type}'})}\n\n"
                             yield f"data: {json.dumps({'type': 'item_complete', 'item': item.fruit_type, 'message': f'No images found for {item.fruit_type}'})}\n\n"
                             continue
                         
@@ -315,8 +318,14 @@ def register_inventory_routes(app):
                             # Broadcast update
                             broadcast_to_admins('inventory_updated', item.to_dict())
                             
+                            # Send progress update after completion
+                            progress_after = int(((idx + 1) / total_items) * 100)
+                            yield f"data: {json.dumps({'type': 'progress', 'progress': progress_after, 'current': idx + 1, 'total': total_items, 'item': item.fruit_type, 'message': f'Completed {item.fruit_type}'})}\n\n"
                             yield f"data: {json.dumps({'type': 'item_complete', 'item': item.fruit_type, 'scores_count': len(scores), 'average': item.get_actual_freshness_avg()})}\n\n"
                         else:
+                            # Send progress update after completion (even if no scores)
+                            progress_after = int(((idx + 1) / total_items) * 100)
+                            yield f"data: {json.dumps({'type': 'progress', 'progress': progress_after, 'current': idx + 1, 'total': total_items, 'item': item.fruit_type, 'message': f'Completed {item.fruit_type}'})}\n\n"
                             yield f"data: {json.dumps({'type': 'item_complete', 'item': item.fruit_type, 'message': 'No valid scores calculated'})}\n\n"
                     
                     # Final completion

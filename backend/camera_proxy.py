@@ -186,6 +186,13 @@ class CameraProxy:
         try:
             async for message in self.ws:
                 try:
+                    # Check if message is binary (bytes) or text (str)
+                    if isinstance(message, bytes):
+                        # Backend sends binary frame data - we don't need to process it
+                        # (it's meant for frontend clients, not the proxy)
+                        continue
+                    
+                    # Try to parse as JSON (text message)
                     data = json.loads(message)
                     msg_type = data.get('type')
                     
@@ -198,10 +205,14 @@ class CameraProxy:
                     elif msg_type == 'ping':
                         # Respond to ping
                         await self.ws.send(json.dumps({'type': 'pong'}))
+                    elif msg_type == 'frame_meta':
+                        # Backend broadcasts frame_meta to all clients (including proxy)
+                        # We can ignore this since we're just sending frames, not receiving them
+                        pass
                     else:
                         print(f"📨 Received message: {msg_type}")
                 except json.JSONDecodeError:
-                    print(f"⚠️ Invalid JSON from backend: {message}")
+                    print(f"⚠️ Invalid JSON from backend: {message[:100]}...")
         except websockets.exceptions.ConnectionClosed:
             print("❌ Backend connection closed")
             self.running = False
