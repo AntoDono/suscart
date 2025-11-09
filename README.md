@@ -47,7 +47,7 @@ The current approach? Random discounts, generic sales, and hoping someone buys i
 
 We're bringing **intelligence to the edge** of the supply chain—right where food meets shelf.
 
-![EdgeCar Admin Video Stream](./media/palantir_look_interface.png)
+![EdgeCart Admin Video Stream](./media/palantir_look_interface.png)
 
 ### **How It Works**
 
