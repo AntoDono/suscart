@@ -5,7 +5,7 @@ import os
 import threading
 import time
 from datetime import datetime
-from models import db, FruitInventory, FreshnessStatus, Customer, Recommendation
+from models import db, FruitInventory, FreshnessStatus, Customer, Recommendation, QuantityChangeLog
 
 from xai_sdk import Client
 from xai_sdk.chat import user, system
@@ -51,9 +51,31 @@ def notify_customer(customer_id, event_type, data):
 
 
 def notify_quantity_change(item, old_quantity, new_quantity):
-    """Helper function to notify about quantity changes"""
+    """Helper function to notify about quantity changes and save to database"""
     quantity_delta = new_quantity - old_quantity
     if quantity_delta != 0:
+        # Get freshness score if available
+        freshness_score = None
+        if item.freshness:
+            freshness_score = item.freshness.freshness_score
+        
+        # Save to database
+        try:
+            change_log = QuantityChangeLog(
+                inventory_id=item.id,
+                fruit_type=item.fruit_type,
+                old_quantity=old_quantity,
+                new_quantity=new_quantity,
+                delta=quantity_delta,
+                change_type='increase' if quantity_delta > 0 else 'decrease',
+                freshness_score=freshness_score
+            )
+            db.session.add(change_log)
+            db.session.commit()
+        except Exception as e:
+            print(f"Error saving quantity change log: {e}")
+            db.session.rollback()
+        
         item_data = item.to_dict()
         item_data['quantity_change'] = {
             'old_quantity': old_quantity,
@@ -61,11 +83,6 @@ def notify_quantity_change(item, old_quantity, new_quantity):
             'delta': quantity_delta,
             'change_type': 'increase' if quantity_delta > 0 else 'decrease'
         }
-        
-        # Get freshness score if available
-        freshness_score = None
-        if item.freshness:
-            freshness_score = item.freshness.freshness_score
         
         # Send specific quantity change event
         broadcast_to_admins('quantity_changed', {
@@ -450,7 +467,7 @@ def _generate_recommendations_threaded(inventory_id, algorithm, rate_limited):
                         
                         if time_since_last_call < AI_RECOMMENDATION_INTERVAL:
                             # Skip this call, not enough time has passed
-                            print(f"⏸️  Skipping AI recommendation (last call {time_since_last_call:.1f}s ago, need {AI_RECOMMENDATION_INTERVAL}s)")
+                            # print(f"⏸️  Skipping AI recommendation (last call {time_since_last_call:.1f}s ago, need {AI_RECOMMENDATION_INTERVAL}s)")
                             return
                         
                         # Update last call time before making the call
@@ -499,7 +516,7 @@ def generate_recommendations_for_item(inventory_id, algorithm=True, rate_limited
                     
                     if time_since_last_call < AI_RECOMMENDATION_INTERVAL:
                         # Skip this call, not enough time has passed
-                        print(f"⏸️  Skipping AI recommendation (last call {time_since_last_call:.1f}s ago, need {AI_RECOMMENDATION_INTERVAL}s)")
+                        # print(f"⏸️  Skipping AI recommendation (last call {time_since_last_call:.1f}s ago, need {AI_RECOMMENDATION_INTERVAL}s)")
                         return []
                     
                     # Update last call time before making the call

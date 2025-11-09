@@ -13,6 +13,7 @@
     "@react-three/drei": "^9.88.0",
     "@react-three/fiber": "^8.15.11",
     "@react-three/postprocessing": "^2.15.1",
+    "date-fns": "^4.1.0",
     "framer-motion": "^11.15.0",
     "mathjs": "^15.1.0",
     "ogl": "^1.0.11",
@@ -21,6 +22,7 @@
     "react-awesome-button": "^7.0.5",
     "react-dom": "^18.3.1",
     "react-icons": "^5.5.0",
+    "recharts": "^3.3.0",
     "simplex-noise": "^4.0.3",
     "three": "^0.159.0"
   },

@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, request, send_from_directory, Response, stream_with_context
 from flask_cors import CORS
 from flask_sock import Sock
 from dotenv import load_dotenv
@@ -7,8 +7,10 @@ import os
 import cv2
 import numpy as np
 from datetime import datetime, timedelta
+from pathlib import Path
 import random
 import threading
+import time
 
 # Load environment variables
 load_dotenv()
@@ -36,7 +38,7 @@ from detect_fruits import (
     get_freshness_score,
     get_best_camera_index
 )
-from utils.image_storage import save_detection_image, get_category_images, get_all_categories, DETECTION_IMAGES_DIR, replace_category_images, delete_category_images
+from utils.image_storage import save_detection_image, get_category_images, get_all_categories, DETECTION_IMAGES_DIR, replace_category_images, delete_category_images, save_thumbnail, mark_image_as_processed   
 from blemish_detection.blemish import detect_blemishes
 import threading
 
@@ -47,16 +49,21 @@ sock = Sock(app)  # Initialize WebSocket support
 PORT = os.getenv('PORT', 3000)
 
 # Database configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///suscart.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///edgecart.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialize database
 init_db(app)
 
-# Create fake customer if POPULATE env var is set
+# Seed database with sample data if POPULATE env var is set
 if os.getenv('POPULATE', 'false').lower() == 'true':
     with app.app_context():
-        # Check if fake customer already exists
+        # Check if database is empty
+        if not Store.query.first():
+            print("📊 Database is empty. Seeding sample data...")
+            seed_sample_data(app)
+        
+        # Create fake customer if it doesn't exist
         fake_customer = Customer.query.filter_by(knot_customer_id='FAKE-CUSTOMER-001').first()
         if not fake_customer:
             fake_customer = Customer(
@@ -242,10 +249,10 @@ def update_freshness():
                 'item': inventory.to_dict()
             })
         
-        # Send alert if critical
-        if freshness.status == 'critical':
+        # Send alert if ripe or clearance
+        if freshness.status in ['ripe', 'clearance']:
             broadcast_to_admins('freshness_alert', {
-                'message': f'Item {inventory.fruit_type} is in critical condition!',
+                'message': f'Item {inventory.fruit_type} needs attention!',
                 'inventory_id': inventory_id,
                 'freshness_score': freshness.freshness_score
             })
@@ -276,10 +283,10 @@ def get_freshness(inventory_id):
 
 @app.route('/api/freshness/critical', methods=['GET'])
 def get_critical_items():
-    """Get all items with critical or warning freshness"""
+    """Get all items with ripe or clearance freshness"""
     try:
         critical_items = FreshnessStatus.query.filter(
-            FreshnessStatus.status.in_(['critical', 'warning'])
+            FreshnessStatus.status.in_(['ripe', 'clearance'])
         ).all()
         
         result = []
@@ -304,10 +311,12 @@ def get_detection_images(category):
     """Get all detection images for a category and run blemish detection"""
     try:
         images = get_category_images(category.lower())
+        # Filter out thumbnail files - they shouldn't be processed for blemish detection
+        detection_images = [img for img in images if not img['filename'].startswith('thumbnail.')]
         
         # Run blemish detection on each image
         images_with_blemishes = []
-        for image_info in images:
+        for image_info in detection_images:
             image_path = DETECTION_IMAGES_DIR / category.lower() / image_info['filename']
             
             # Check if blemish detection already exists in metadata
@@ -331,6 +340,13 @@ def get_detection_images(category):
                     with open(metadata_path, 'w') as f:
                         json.dump(image_info['metadata'], f, indent=2, default=str)
                     
+                    # Mark image as processed so it doesn't get deleted
+                    new_path = mark_image_as_processed(image_path)
+                    if new_path:
+                        # Update image_info with new path and filename
+                        image_info['path'] = new_path
+                        image_info['filename'] = Path(new_path).name
+                        
                 except Exception as e:
                     print(f"Error running blemish detection on {image_path}: {e}")
                     # Continue without blemish data if detection fails
@@ -350,6 +366,82 @@ def get_detection_images(category):
         }), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/detection-images/<category>/stream', methods=['GET'])
+def get_detection_images_stream(category):
+    """Get detection images with progress updates via Server-Sent Events"""
+    def generate():
+        try:
+            images = get_category_images(category.lower())
+            # Filter out thumbnail files - they shouldn't be processed for blemish detection
+            detection_images = [img for img in images if not img['filename'].startswith('thumbnail.')]
+            total_images = len(detection_images)
+            
+            if total_images == 0:
+                yield f"data: {json.dumps({'type': 'complete', 'progress': 100, 'images': []})}\n\n"
+                return
+            
+            images_with_blemishes = []
+            for idx, image_info in enumerate(detection_images):
+                image_path = DETECTION_IMAGES_DIR / category.lower() / image_info['filename']
+                
+                # Send progress update before processing
+                progress = int((idx / total_images) * 100)
+                yield f"data: {json.dumps({'type': 'progress', 'progress': progress, 'current': idx + 1, 'total': total_images, 'filename': image_info['filename']})}\n\n"
+                
+                # Check if blemish detection already exists in metadata
+                if not (image_info.get('metadata') and 'blemishes' in image_info['metadata']):
+                    # Run blemish detection
+                    try:
+                        blemish_result = detect_blemishes(str(image_path))
+                        
+                        # Update metadata with blemish results
+                        if not image_info.get('metadata'):
+                            image_info['metadata'] = {}
+                        
+                        image_info['metadata']['blemishes'] = {
+                            'bboxes': blemish_result['bboxes'],
+                            'labels': blemish_result['labels'],
+                            'count': len(blemish_result['bboxes'])
+                        }
+                        
+                        # Save updated metadata
+                        metadata_path = image_path.with_suffix('.json')
+                        with open(metadata_path, 'w') as f:
+                            json.dump(image_info['metadata'], f, indent=2, default=str)
+                        
+                        # Mark image as processed so it doesn't get deleted
+                        new_path = mark_image_as_processed(image_path)
+                        if new_path:
+                            # Update image_info with new path and filename
+                            image_info['path'] = new_path
+                            image_info['filename'] = Path(new_path).name
+                            image_path = DETECTION_IMAGES_DIR / category.lower() / image_info['filename']
+                        
+                    except Exception as e:
+                        print(f"Error running blemish detection on {image_path}: {e}")
+                        # Continue without blemish data if detection fails
+                        if not image_info.get('metadata'):
+                            image_info['metadata'] = {}
+                        image_info['metadata']['blemishes'] = {
+                            'error': str(e),
+                            'count': 0
+                        }
+                
+                images_with_blemishes.append(image_info)
+                
+                # Send progress update after processing
+                progress = int(((idx + 1) / total_images) * 100)
+                yield f"data: {json.dumps({'type': 'progress', 'progress': progress, 'current': idx + 1, 'total': total_images, 'filename': image_info['filename']})}\n\n"
+            
+            # Send final result
+            yield f"data: {json.dumps({'type': 'complete', 'progress': 100, 'category': category, 'count': len(images_with_blemishes), 'images': images_with_blemishes})}\n\n"
+            
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
+    
+    return Response(stream_with_context(generate()), mimetype='text/event-stream')
 
 
 @app.route('/api/detection-images', methods=['GET'])
@@ -774,7 +866,7 @@ def admin_websocket(ws):
                     if request_data.get('action') == 'get_stats':
                         # Send current stats
                         inventory_count = FruitInventory.query.count()
-                        critical_count = FreshnessStatus.query.filter_by(status='critical').count()
+                        critical_count = FreshnessStatus.query.filter(FreshnessStatus.status.in_(['ripe', 'clearance'])).count()
                         
                         ws.send(json.dumps({
                             'type': 'stats',
@@ -863,10 +955,19 @@ def stream_video_websocket(ws):
             inventory_cache = {}
             default_store_id = None
             with app.app_context():
-                # Get first store as default
+                # Get first store as default, or create one if none exists
                 default_store = Store.query.first()
-                if default_store:
-                    default_store_id = default_store.id
+                if not default_store:
+                    # Create a default store if none exists
+                    default_store = Store(
+                        name="Default Store",
+                        location="Camera Detection",
+                        contact_info="N/A"
+                    )
+                    db.session.add(default_store)
+                    db.session.commit()
+                    print(f"✅ Created default store with ID: {default_store.id}")
+                default_store_id = default_store.id
                 
                 items = FruitInventory.query.all()
                 for item in items:
@@ -881,7 +982,8 @@ def stream_video_websocket(ws):
             # FPS calculation variables
             frame_times = []
             detection_delta = 0.125
-            update_delta = 1.0
+            update_delta = 1
+            last_updated_time = {}
             min_confidence = 0.6
             cached_detections = []
             window_size = 30
@@ -930,17 +1032,7 @@ def stream_video_websocket(ws):
                                 cropped = crop_bounding_box(frame, bbox)
                                 if cropped is not None:
                                     freshness_score = get_freshness_score(cropped, fresh_model, fresh_device, fresh_transform)
-                                    
-                                    # 🎯 INTEGRATION: Update freshness in database automatically!
-                                    # Check if this fruit is in our inventory
-                                    if class_name in inventory_cache and freshness_score is not None:
-                                        item_id, _ = inventory_cache[class_name]
-                                        # Update freshness asynchronously to not block video stream
-                                        threading.Thread(
-                                            target=update_freshness_from_camera,
-                                            args=(item_id, freshness_score, confidence),
-                                            daemon=True
-                                        ).start()
+                                    # Freshness will be updated in batched system with delay check
                                 else:
                                     print(f"⚠️ Could not crop bounding box for {class_name}")
                             else:
@@ -1009,26 +1101,55 @@ def stream_video_websocket(ws):
                         # Batch all updates to do in a single database transaction
                         updates_to_process = []
                         
-                        # First, handle all currently detected fruits
-                        for fruit_type, current_count in current_class_counts.items():
+                        # Get all fruit types that need to be checked (detected + previously detected)
+                        all_fruit_types = set(current_class_counts.keys()) | set(previous_class_counts.keys())
+                        
+                        # SINGLE UPDATE CHECK - Process all fruits with delay check
+                        for fruit_type in all_fruit_types:
+                            current_count = current_class_counts.get(fruit_type, 0)
                             previous_count = previous_class_counts.get(fruit_type, 0)
+                            
+                            # # Check if enough time has passed since last update for this fruit type
+                            # print(f"last_updated_time: {last_updated_time} | fruit_type: {fruit_type} | previous_count: {previous_count} | current_count: {current_count}")
+                            if last_updated_time.get(fruit_type) is None:
+                                # First time seeing this fruit type
+                                can_update = True
+                                last_updated_time[fruit_type] = current_time
+                            else:
+                                time_since_last_update = current_time - last_updated_time.get(fruit_type)
+                                can_update = time_since_last_update >= update_delta
+                                # print(f"time_since_last_update: {time_since_last_update:.2f}s | can_update: {can_update}")
+                                if not can_update:
+                                    continue  # Skip this fruit type until delay passes
+                                else:
+                                    last_updated_time[fruit_type] = current_time
+                                    # print(f"✅ Updating {fruit_type}: {time_since_last_update:.2f}s >= {update_delta}s")
+                            
+                            # Handle count changes (including going to 0)
                             if current_count != previous_count:
-                                # Count changed - store images for this class type
-                                # Collect all images for this fruit type from current detections
-                                fruit_images = []
-                                for det in processed_detections:
-                                    if det.get('class') == fruit_type and 'cropped_image' in det:
-                                        fruit_images.append((det['cropped_image'], det.get('metadata', {})))
-                                
-                                # Replace folder with new images (asynchronously to not block video stream)
-                                if fruit_images:
+                                # Handle image storage
+                                if current_count > 0:
+                                    # Store images for detected fruits
+                                    fruit_images = []
+                                    for det in processed_detections:
+                                        if det.get('class') == fruit_type and 'cropped_image' in det:
+                                            fruit_images.append((det['cropped_image'], det.get('metadata', {})))
+                                    
+                                    if fruit_images:
+                                        threading.Thread(
+                                            target=replace_category_images,
+                                            args=(fruit_images, fruit_type),
+                                            daemon=True
+                                        ).start()
+                                else:
+                                    # Clear images when fruit disappears
                                     threading.Thread(
-                                        target=replace_category_images,
-                                        args=(fruit_images, fruit_type),
+                                        target=delete_category_images,
+                                        args=(fruit_type,),
                                         daemon=True
                                     ).start()
                                 
-                                # Count changed - prepare update
+                                # Prepare database update
                                 if fruit_type in inventory_cache:
                                     item_id, old_quantity = inventory_cache[fruit_type]
                                     updates_to_process.append({
@@ -1037,59 +1158,52 @@ def stream_video_websocket(ws):
                                         'fruit_type': fruit_type,
                                         'old_quantity': old_quantity,
                                         'new_quantity': current_count,
-                                        'freshness_score': freshness_updates.get(fruit_type)
+                                        'freshness_score': freshness_updates.get(fruit_type) if current_count > 0 else None
                                     })
                                     # Update cache immediately
                                     inventory_cache[fruit_type] = (item_id, current_count)
-                                elif default_store_id is not None:
-                                    # Fruit type not in inventory - prepare creation
+                                elif current_count > 0:
+                                    # Create new inventory item (store should exist now)
+                                    if default_store_id is None:
+                                        # This shouldn't happen, but create store if needed
+                                        with app.app_context():
+                                            default_store = Store.query.first()
+                                            if not default_store:
+                                                default_store = Store(
+                                                    name="Default Store",
+                                                    location="Camera Detection",
+                                                    contact_info="N/A"
+                                                )
+                                                db.session.add(default_store)
+                                                db.session.commit()
+                                                print(f"✅ Created default store with ID: {default_store.id}")
+                                            default_store_id = default_store.id
+                                    
+                                    # Get first cropped image for thumbnail if available
+                                    thumbnail_image = None
+                                    for det in processed_detections:
+                                        if det.get('class') == fruit_type and 'cropped_image' in det:
+                                            thumbnail_image = det['cropped_image']
+                                            break
+                                    
                                     updates_to_process.append({
                                         'type': 'create',
                                         'fruit_type': fruit_type,
                                         'quantity': current_count,
                                         'store_id': default_store_id,
-                                        'freshness_score': freshness_updates.get(fruit_type)
+                                        'freshness_score': freshness_updates.get(fruit_type),
+                                        'thumbnail_image': thumbnail_image
                                     })
-                        
-                        # Handle fruits that were previously detected but are no longer detected (count = 0)
-                        for fruit_type, previous_count in previous_class_counts.items():
-                            if fruit_type not in current_class_counts and previous_count > 0:
-                                # Fruit no longer detected - clear images folder
-                                threading.Thread(
-                                    target=delete_category_images,
-                                    args=(fruit_type,),
-                                    daemon=True
-                                ).start()
-                                
-                                # Fruit no longer detected - set quantity to 0
+                            
+                            # Handle freshness-only updates (when count didn't change but freshness did)
+                            elif current_count > 0 and fruit_type in freshness_updates:
                                 if fruit_type in inventory_cache:
-                                    item_id, old_quantity = inventory_cache[fruit_type]
-                                    updates_to_process.append({
-                                        'type': 'update',
-                                        'item_id': item_id,
-                                        'fruit_type': fruit_type,
-                                        'old_quantity': old_quantity,
-                                        'new_quantity': 0,
-                                        'freshness_score': None  # No freshness update when fruit disappears
-                                    })
-                                    # Update cache immediately
-                                    inventory_cache[fruit_type] = (item_id, 0)
-                        
-                        # Also update freshness for fruits that are still detected (even if count didn't change)
-                        for fruit_type, freshness_score in freshness_updates.items():
-                            if fruit_type in inventory_cache and fruit_type in current_class_counts:
-                                item_id, _ = inventory_cache[fruit_type]
-                                # Check if this update is already in updates_to_process
-                                already_updating = any(
-                                    u.get('item_id') == item_id and u.get('type') == 'update'
-                                    for u in updates_to_process
-                                )
-                                if not already_updating:
+                                    item_id, _ = inventory_cache[fruit_type]
                                     updates_to_process.append({
                                         'type': 'freshness_only',
                                         'item_id': item_id,
                                         'fruit_type': fruit_type,
-                                        'freshness_score': freshness_score
+                                        'freshness_score': freshness_updates[fruit_type]
                                     })
                         
                         # Process all updates in a single database transaction
@@ -1112,6 +1226,11 @@ def stream_video_websocket(ws):
                                         random_suffix = random.randint(1000, 9999)
                                         batch_number = f"BATCH-{timestamp.strftime('%Y%m%d')}-{random_suffix}"
                                         
+                                        # Save thumbnail if image is available
+                                        thumbnail_path = None
+                                        if update.get('thumbnail_image') is not None:
+                                            thumbnail_path = save_thumbnail(update['thumbnail_image'], update['fruit_type'])
+                                        
                                         new_item = FruitInventory(
                                             store_id=update['store_id'],
                                             fruit_type=update['fruit_type'],
@@ -1119,7 +1238,8 @@ def stream_video_websocket(ws):
                                             original_price=5.99,
                                             current_price=5.99,
                                             location_in_store="Camera Detection",
-                                            batch_number=batch_number
+                                            batch_number=batch_number,
+                                            thumbnail_path=thumbnail_path
                                         )
                                         db.session.add(new_item)
                                         db.session.flush()  # Get the ID without committing
@@ -1140,9 +1260,16 @@ def stream_video_websocket(ws):
                                 
                                 # Commit all changes at once
                                 db.session.commit()
-                        
-                        # Update previous counts for next comparison
-                        previous_class_counts = current_class_counts.copy()
+                            
+                            # Update previous counts only for fruits that were actually processed
+                            for update in updates_to_process:
+                                fruit_type = update.get('fruit_type')
+                                if fruit_type:
+                                    if update['type'] in ['update', 'create']:
+                                        previous_class_counts[fruit_type] = update.get('new_quantity', update.get('quantity', 0))
+                                    elif update['type'] == 'freshness_only':
+                                        # Keep the same count for freshness-only updates
+                                        previous_class_counts[fruit_type] = current_class_counts.get(fruit_type, 0)
                     else:
                         # Use cached detections
                         processed_detections = cached_detections
@@ -1333,10 +1460,11 @@ if __name__ == '__main__':
     with app.app_context():
         db.create_all()
         
-        # Seed sample data if database is empty
-        if not Store.query.first():
-            print("📊 Database is empty. Seeding sample data...")
-            seed_sample_data(app)
+        # Seed sample data only if POPULATE is set to true
+        if os.getenv('POPULATE', 'false').lower() == 'true':
+            if not Store.query.first():
+                print("📊 Database is empty. Seeding sample data...")
+                seed_sample_data(app)
     
     print("\n" + "="*50)
     print("🛒 SusCart Backend Server Starting...")

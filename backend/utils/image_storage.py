@@ -35,6 +35,7 @@ def replace_category_images(cropped_images: List[tuple], category: str) -> List[
     """
     Replace all images in a category folder with new images.
     Used when detection counter changes - clears old images and stores new ones.
+    Preserves thumbnail.* files so they don't get deleted.
     
     Args:
         cropped_images: List of tuples (image_array, metadata_dict) for each detection
@@ -46,9 +47,9 @@ def replace_category_images(cropped_images: List[tuple], category: str) -> List[
     try:
         category_dir = ensure_category_directory(category)
         
-        # Delete all existing images in the folder
+        # Delete all existing images in the folder EXCEPT thumbnail files and processed images
         for file_path in category_dir.iterdir():
-            if file_path.is_file():
+            if file_path.is_file() and not file_path.name.startswith('thumbnail.') and not file_path.name.startswith('processed_'):
                 file_path.unlink()
         
         # Save new images
@@ -141,6 +142,7 @@ def get_category_images(category: str) -> List[dict]:
             timestamp = datetime.fromtimestamp(image_path.stat().st_mtime)
             
             # Load metadata if available
+            # For processed images, the JSON will also have processed_ prefix
             metadata = None
             metadata_path = image_path.with_suffix('.json')
             if metadata_path.exists():
@@ -190,6 +192,7 @@ def get_all_categories() -> List[str]:
 def delete_category_images(category: str) -> bool:
     """
     Delete all images for a category.
+    Preserves thumbnail.* files so they don't get deleted.
     
     Args:
         category: Fruit category name
@@ -200,17 +203,91 @@ def delete_category_images(category: str) -> bool:
     try:
         category_dir = ensure_category_directory(category)
         
-        # Delete all files in the directory
+        # Delete all files in the directory EXCEPT thumbnail files and processed images
         for file_path in category_dir.iterdir():
-            if file_path.is_file():
+            if file_path.is_file() and not file_path.name.startswith('thumbnail.') and not file_path.name.startswith('processed_'):
                 file_path.unlink()
         
-        # Remove the directory
-        category_dir.rmdir()
+        # Only remove the directory if it's empty (no thumbnail files)
+        try:
+            category_dir.rmdir()
+        except OSError:
+            # Directory not empty (has thumbnail files), that's fine
+            pass
         
         return True
     
     except Exception as e:
         print(f"Error deleting images for {category}: {e}")
         return False
+
+
+def save_thumbnail(cropped_image: np.ndarray, category: str) -> Optional[str]:
+    """
+    Save a thumbnail image for a category. Thumbnail files are preserved
+    when replace_category_images or delete_category_images are called.
+    
+    Args:
+        cropped_image: Image array to save as thumbnail
+        category: Fruit category name (e.g., 'banana', 'apple')
+    
+    Returns:
+        Relative path to saved thumbnail, or None if error
+    """
+    try:
+        category_dir = ensure_category_directory(category)
+        
+        # Determine file extension based on image format
+        # Use .jpg as default
+        thumbnail_filename = "thumbnail.jpg"
+        thumbnail_path = category_dir / thumbnail_filename
+        
+        # Save thumbnail
+        cv2.imwrite(str(thumbnail_path), cropped_image)
+        
+        relative_path = f"detection_images/{category.lower()}/{thumbnail_filename}"
+        return relative_path
+    
+    except Exception as e:
+        print(f"Error saving thumbnail for {category}: {e}")
+        return None
+
+
+def mark_image_as_processed(image_path: Path) -> Optional[str]:
+    """
+    Mark an image and its metadata JSON as processed by renaming them with a "processed_" prefix.
+    Processed images are preserved when replace_category_images or delete_category_images are called.
+    
+    Args:
+        image_path: Path to the image file
+    
+    Returns:
+        New relative path to the renamed image, or None if error
+    """
+    try:
+        if not image_path.exists():
+            return None
+        
+        # Skip if already processed
+        if image_path.name.startswith('processed_') or image_path.name.startswith('thumbnail.'):
+            return f"detection_images/{image_path.parent.name}/{image_path.name}"
+        
+        # Rename image file
+        new_image_name = f"processed_{image_path.name}"
+        new_image_path = image_path.parent / new_image_name
+        image_path.rename(new_image_path)
+        
+        # Rename corresponding JSON metadata file if it exists
+        metadata_path = image_path.with_suffix('.json')
+        if metadata_path.exists():
+            new_metadata_name = f"processed_{metadata_path.name}"
+            new_metadata_path = metadata_path.parent / new_metadata_name
+            metadata_path.rename(new_metadata_path)
+        
+        relative_path = f"detection_images/{image_path.parent.name}/{new_image_name}"
+        return relative_path
+    
+    except Exception as e:
+        print(f"Error marking image as processed {image_path}: {e}")
+        return None
 

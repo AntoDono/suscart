@@ -9,3 +9,5 @@ fresh-*-classification.zip
 .DS_Store
 /node_modules
 /frontend/node_modules
+instance/
+detection_images/

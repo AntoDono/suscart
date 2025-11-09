@@ -605,7 +605,7 @@
 }
 
 .inventory-table th {
-  padding: 0.75rem;
+  padding: 0.75rem 0.5rem;
   text-align: left;
   color: #7ECA9C;
   font-weight: 500;
@@ -616,7 +616,7 @@
 }
 
 .inventory-table td {
-  padding: 0.75rem;
+  padding: 0.4rem 0.75rem;
   color: #CCFFBD;
   border-bottom: 1px solid rgba(170, 240, 209, 0.1);
 }
@@ -647,6 +647,9 @@
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .change-log-item {

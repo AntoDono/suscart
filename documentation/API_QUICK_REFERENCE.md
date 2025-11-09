@@ -302,7 +302,7 @@ curl http://localhost:5000/api/inventory
 open http://localhost:5000/
 
 # Reset database
-rm backend/suscart.db && python backend/main.py
+rm backend/edgecart.db && python backend/main.py
 ```
 
 ---

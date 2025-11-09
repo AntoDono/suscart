@@ -325,7 +325,7 @@ The database is automatically seeded with:
 
 ### Environment Variables (`.env`)
 ```env
-DATABASE_URL=sqlite:///suscart.db
+DATABASE_URL=sqlite:///edgecart.db
 KNOT_API_KEY=your_knot_api_key_here  # Optional for development
 KNOT_API_URL=https://api.useknotapi.com/v1
 ```
@@ -395,7 +395,7 @@ suscart/
 │   ├── knot_integration.py     # Knot API client (360 lines)
 │   ├── README.md               # Detailed API docs
 │   ├── ws_test_client.html     # WebSocket test UI
-│   └── suscart.db              # SQLite database (auto-created)
+│   └── edgecart.db              # SQLite database (auto-created)
 ├── requirements.txt            # Python dependencies
 ├── PROJECT_REQUIREMENTS.md     # Full project spec
 ├── SETUP_GUIDE.md             # Quick start guide

@@ -47,6 +47,8 @@ class FruitInventory(db.Model):
     location_in_store = db.Column(db.String(100))  # Aisle/Section
     original_price = db.Column(db.Float, nullable=False)
     current_price = db.Column(db.Float, nullable=False)
+    thumbnail_path = db.Column(db.String(500))  # Path to thumbnail image
+    actual_freshness_scores = db.Column(db.Text)  # JSON array of actual freshness scores from blemish detection
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -56,6 +58,7 @@ class FruitInventory(db.Model):
     purchases = db.relationship('PurchaseHistory', back_populates='inventory', cascade='all, delete-orphan')
     recommendations = db.relationship('Recommendation', back_populates='inventory', cascade='all, delete-orphan')
     waste_logs = db.relationship('WasteLog', back_populates='inventory', cascade='all, delete-orphan')
+    quantity_changes = db.relationship('QuantityChangeLog', back_populates='inventory', cascade='all, delete-orphan')
     
     def to_dict(self, include_freshness=True):
         data = {
@@ -70,6 +73,9 @@ class FruitInventory(db.Model):
             'original_price': self.original_price,
             'current_price': self.current_price,
             'discount_percentage': round(((self.original_price - self.current_price) / self.original_price * 100), 2) if self.original_price > 0 else 0,
+            'thumbnail_path': self.thumbnail_path,
+            'actual_freshness_scores': self.get_actual_freshness_scores(),
+            'actual_freshness_avg': self.get_actual_freshness_avg(),
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
@@ -78,6 +84,32 @@ class FruitInventory(db.Model):
             data['freshness'] = self.freshness.to_dict()
             
         return data
+    
+    def get_actual_freshness_scores(self):
+        """Parse actual_freshness_scores JSON"""
+        if self.actual_freshness_scores:
+            try:
+                return json.loads(self.actual_freshness_scores)
+            except:
+                return []
+        return []
+    
+    def set_actual_freshness_scores(self, scores_list):
+        """Set actual_freshness_scores from list"""
+        self.actual_freshness_scores = json.dumps(scores_list)
+    
+    def add_actual_freshness_score(self, score: float):
+        """Add a new actual freshness score to the list"""
+        scores = self.get_actual_freshness_scores()
+        scores.append(score)
+        self.set_actual_freshness_scores(scores)
+    
+    def get_actual_freshness_avg(self):
+        """Get average of actual freshness scores, or None if no scores"""
+        scores = self.get_actual_freshness_scores()
+        if not scores:
+            return None
+        return round(sum(scores) / len(scores), 2)
 
 
 class FreshnessStatus(db.Model):
@@ -90,7 +122,7 @@ class FreshnessStatus(db.Model):
     predicted_expiry_date = db.Column(db.DateTime)
     confidence_level = db.Column(db.Float)  # 0-1 scale
     discount_percentage = db.Column(db.Float, default=0)
-    status = db.Column(db.String(50), default='fresh')  # fresh, warning, critical, expired
+    status = db.Column(db.String(50), default='fresh')  # fresh, ripe, clearance
     last_checked = db.Column(db.DateTime, default=datetime.utcnow)
     image_url = db.Column(db.String(500))
     notes = db.Column(db.Text)
@@ -139,14 +171,12 @@ class FreshnessStatus(db.Model):
     
     def update_status(self):
         """Update status based on freshness score (0-1.0 scale)"""
-        if self.freshness_score >= 0.7:
+        if self.freshness_score >= 0.6:
             self.status = 'fresh'
-        elif self.freshness_score >= 0.4:
-            self.status = 'warning'
-        elif self.freshness_score >= 0.1:
-            self.status = 'critical'
+        elif self.freshness_score >= 0.2:
+            self.status = 'ripe'
         else:
-            self.status = 'expired'
+            self.status = 'clearance'
 
 
 class Customer(db.Model):
@@ -272,6 +302,37 @@ class Recommendation(db.Model):
     def set_reason(self, reason_dict):
         """Set reason from dictionary"""
         self.reason = json.dumps(reason_dict)
+
+
+class QuantityChangeLog(db.Model):
+    """Track all quantity changes for inventory items"""
+    __tablename__ = 'quantity_change_log'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    inventory_id = db.Column(db.Integer, db.ForeignKey('fruit_inventory.id'), nullable=False)
+    fruit_type = db.Column(db.String(100), nullable=False)  # Store fruit_type for historical tracking
+    old_quantity = db.Column(db.Integer, nullable=False)
+    new_quantity = db.Column(db.Integer, nullable=False)
+    delta = db.Column(db.Integer, nullable=False)  # new_quantity - old_quantity
+    change_type = db.Column(db.String(20), nullable=False)  # 'increase' or 'decrease'
+    freshness_score = db.Column(db.Float)  # Freshness at time of change
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    inventory = db.relationship('FruitInventory', back_populates='quantity_changes')
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'inventory_id': self.inventory_id,
+            'fruit_type': self.fruit_type,
+            'old_quantity': self.old_quantity,
+            'new_quantity': self.new_quantity,
+            'delta': self.delta,
+            'change_type': self.change_type,
+            'freshness_score': self.freshness_score,
+            'timestamp': self.timestamp.isoformat() if self.timestamp else None
+        }
 
 
 class WasteLog(db.Model):
